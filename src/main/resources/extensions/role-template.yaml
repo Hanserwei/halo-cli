@@ -1,0 +1,15 @@
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: halo-cli-role-view-downloads
+  labels:
+    halo.run/role-template: "true"
+  annotations:
+    rbac.authorization.halo.run/module: "Halo CLI"
+    rbac.authorization.halo.run/display-name: "下载 Halo CLI"
+    rbac.authorization.halo.run/ui-permissions: |
+      ["plugin:halo-cli:download:view"]
+rules:
+  - apiGroups: ["console.api.halo-cli.halo.run"]
+    resources: ["downloads"]
+    verbs: ["get"]

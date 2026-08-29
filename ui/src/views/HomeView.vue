@@ -1,166 +1,303 @@
 <script setup lang="ts">
-import confetti from 'canvas-confetti'
-import { onMounted } from 'vue'
-import RiShareCircleLine from '~icons/ri/share-circle-line'
-import RiCodeBoxLine from '~icons/ri/code-box-line'
-import RiBookReadLine from '~icons/ri/book-read-line'
-import RiComputerLine from '~icons/ri/computer-line'
-import RiArrowRightSLine from '~icons/ri/arrow-right-s-line'
+import { computed, ref } from 'vue'
 
-onMounted(() => {
-  confetti({
-    particleCount: 100,
-    spread: 70,
-    origin: { y: 0.6, x: 0.58 },
-  })
-})
+const downloadPath = '/apis/console.api.halo-cli.halo.run/v1alpha1/downloads/cli'
+const copied = ref(false)
+const origin = window.location.origin
+const installCommand = computed(
+  () => 'mkdir -p ~/.local/bin && install -m 0755 ~/Downloads/halo-cli.cjs ~/.local/bin/halo-cli',
+)
+
+async function copyInstallCommand() {
+  await navigator.clipboard.writeText(installCommand.value)
+  copied.value = true
+  window.setTimeout(() => (copied.value = false), 1800)
+}
 </script>
 
 <template>
-  <section id="plugin-starter">
-    <div class="wrapper">
-      <span class="title"> 你已经成功运行起了插件！ </span>
-      <span class="message">你可以点击下方文档继续下一步</span>
-      <div class="docs">
-        <a
-          href="https://docs.halo.run/developer-guide/appendix/publish-app"
-          class="docs__box"
-          target="_blank"
-        >
-          <h2 class="docs__box-title"><RiShareCircleLine />发布一个插件</h2>
-          <span class="docs__box-message"> 了解如何与我们的社区分享您的扩展。 </span>
-          <span class="docs__box-arrow">
-            <RiArrowRightSLine />
-          </span>
-        </a>
-        <a
-          href="https://docs.halo.run/category/%E5%9F%BA%E7%A1%80"
-          class="docs__box"
-          target="_blank"
-        >
-          <h2 class="docs__box-title"><RiComputerLine />基础概览</h2>
-          <span class="docs__box-message"> 了解插件的项目结构、生命周期、资源配置等。 </span>
-          <span class="docs__box-arrow">
-            <RiArrowRightSLine />
-          </span>
-        </a>
-        <a
-          href="https://docs.halo.run/developer-guide/plugin/examples/todolist"
-          class="docs__box group"
-          target="_blank"
-        >
-          <h2 class="docs__box-title"><RiBookReadLine />示例插件</h2>
-          <span class="docs__box-message">帮助你从 0 到 1 完成一个插件。</span>
-          <span class="docs__box-arrow">
-            <RiArrowRightSLine />
-          </span>
-        </a>
-        <a
-          href="https://docs.halo.run/category/api-%E5%8F%82%E8%80%83"
-          class="docs__box"
-          target="_blank"
-        >
-          <h2 class="docs__box-title"><RiCodeBoxLine />API 参考</h2>
-          <span class="docs__box-message">插件中的 API 列表。</span>
-          <span class="docs__box-arrow">
-            <RiArrowRightSLine />
-          </span>
-        </a>
+  <section class="cli-page">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">HALO CONTENT TOOLING</span>
+        <h1>Halo CLI</h1>
+        <p>在终端中管理 Halo 文章、分类和标签。单文件分发，无需在服务器安装插件之外的服务。</p>
       </div>
+      <a class="primary-button" :href="downloadPath" download="halo-cli.cjs">下载 CLI</a>
+    </header>
+
+    <div class="notice">
+      <strong>运行要求</strong>
+      <span>Node.js 20.19 或更高版本。当前为第一期 0.1.0。</span>
     </div>
+
+    <article class="panel install-panel">
+      <div class="panel-title">
+        <div>
+          <span class="step">01</span>
+          <h2>安装</h2>
+        </div>
+        <button type="button" class="copy-button" @click="copyInstallCommand">
+          {{ copied ? '已复制' : '复制命令' }}
+        </button>
+      </div>
+      <pre><code>{{ installCommand }}</code></pre>
+      <p class="hint">先点击右上角下载，再执行安装命令；请确认 <code>~/.local/bin</code> 已加入 PATH。</p>
+    </article>
+
+    <div class="grid">
+      <article class="panel">
+        <div class="panel-title">
+          <div>
+            <span class="step">02</span>
+            <h2>连接 Halo</h2>
+          </div>
+        </div>
+        <p>在个人中心创建个人令牌，然后保存为本地连接：</p>
+        <pre><code>halo-cli auth login \
+  --url {{ origin }} \
+  --token pat_xxx</code></pre>
+        <p class="hint">令牌保存在权限为 0600 的用户配置文件中，不会显示在列表输出里。</p>
+      </article>
+
+      <article class="panel">
+        <div class="panel-title">
+          <div>
+            <span class="step">03</span>
+            <h2>开始管理</h2>
+          </div>
+        </div>
+        <pre><code>halo-cli post list
+halo-cli post create --title "Hello" --file post.md --publish
+halo-cli category list
+halo-cli tag create --display-name "Halo"</code></pre>
+        <p class="hint">所有查询命令均支持 <code>--json</code>，可直接用于脚本和 CI。</p>
+      </article>
+    </div>
+
+    <article class="panel scope-panel">
+      <div>
+        <span class="step">ROADMAP</span>
+        <h2>功能范围</h2>
+      </div>
+      <div class="scope-list">
+        <div class="scope-item ready">
+          <span>第一期 · 已完成</span>
+          <strong>文章 / 分类 / 标签</strong>
+          <small>查询、创建、更新、发布、回收与删除</small>
+        </div>
+        <div class="scope-item">
+          <span>第二期 · 计划中</span>
+          <strong>页面 / 评论 / 附件</strong>
+          <small>沿用同一认证、输出与错误处理体系</small>
+        </div>
+      </div>
+    </article>
   </section>
 </template>
 
-<style lang="scss" scoped>
-#plugin-starter {
-  height: 100vh;
-  background-color: #f8fafc;
+<style scoped>
+.cli-page {
+  min-height: 100%;
+  padding: 2rem;
+  color: #172033;
+  background:
+    radial-gradient(circle at 82% 3%, rgb(68 111 255 / 14%), transparent 30rem),
+    #f5f7fb;
 }
 
-.wrapper {
+.hero,
+.panel-title,
+.scope-list {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
-  height: 100vh;
+  justify-content: space-between;
   gap: 1.5rem;
+}
 
-  .title {
-    font-weight: 700;
-    font-size: 1.25rem;
-    line-height: 1.75rem;
+.hero {
+  max-width: 72rem;
+  margin: 0 auto 1.5rem;
+  padding: 2.25rem;
+  color: white;
+  border-radius: 1.25rem;
+  background: linear-gradient(125deg, #162044, #334ec5 72%, #5476ff);
+  box-shadow: 0 1.25rem 3.5rem rgb(30 54 140 / 22%);
+}
+
+.hero h1 {
+  margin: 0.35rem 0;
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.hero p {
+  max-width: 40rem;
+  margin: 0.8rem 0 0;
+  color: #dce4ff;
+}
+
+.eyebrow,
+.step {
+  color: #7890ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.eyebrow {
+  color: #adbcff;
+}
+
+.primary-button,
+.copy-button {
+  flex: none;
+  border: 0;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary-button {
+  padding: 0.85rem 1.25rem;
+  color: #223782;
+  background: white;
+  text-decoration: none;
+}
+
+.notice,
+.panel,
+.grid {
+  max-width: 72rem;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.notice {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  color: #46526c;
+  font-size: 0.86rem;
+  border: 1px solid #dce2ef;
+  border-radius: 0.8rem;
+  background: rgb(255 255 255 / 76%);
+}
+
+.panel {
+  padding: 1.5rem;
+  border: 1px solid #e3e7f0;
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 0.5rem 1.8rem rgb(31 44 83 / 6%);
+}
+
+.panel h2 {
+  margin: 0.15rem 0 0;
+  font-size: 1.15rem;
+}
+
+.panel p {
+  color: #59647a;
+}
+
+.copy-button {
+  padding: 0.55rem 0.8rem;
+  color: #3853be;
+  background: #eef1ff;
+}
+
+pre {
+  overflow-x: auto;
+  margin: 1rem 0 0;
+  padding: 1rem;
+  color: #d8e1ff;
+  border-radius: 0.75rem;
+  background: #151b2d;
+}
+
+code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.84rem;
+}
+
+.hint {
+  margin-bottom: 0;
+  font-size: 0.8rem;
+}
+
+.hint code {
+  color: #3853be;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.grid .panel {
+  margin: 0;
+}
+
+.scope-panel {
+  display: grid;
+  grid-template-columns: minmax(10rem, 0.6fr) minmax(0, 2fr);
+  align-items: start;
+  gap: 2rem;
+}
+
+.scope-list {
+  align-items: stretch;
+}
+
+.scope-item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem;
+  color: #657086;
+  border: 1px solid #e1e5ee;
+  border-radius: 0.8rem;
+  background: #f8f9fc;
+}
+
+.scope-item.ready {
+  color: #234cb0;
+  border-color: #cbd7ff;
+  background: #f0f4ff;
+}
+
+.scope-item span,
+.scope-item small {
+  font-size: 0.76rem;
+}
+
+@media (max-width: 760px) {
+  .cli-page {
+    padding: 1rem;
   }
 
-  .message {
-    font-size: 0.875rem;
-    line-height: 1.25rem;
-    color: #4b5563;
+  .hero,
+  .panel-title,
+  .scope-list {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
-  .docs {
-    display: grid;
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-    gap: 1rem;
-    max-width: 48rem;
-
-    .docs__box {
-      background-color: #fff;
-      border-radius: 0.375rem;
-      padding: 0.75rem;
-      transition-property: all;
-      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-      transition-duration: 300ms;
-      cursor: pointer;
-      filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1)) drop-shadow(0 1px 1px rgb(0 0 0 / 0.06));
-
-      &:hover {
-        box-shadow:
-          0 0 0 0px #fff,
-          0 0 0 1px rgb(59 130 246 / 0.5),
-          0 0 #0000;
-      }
-
-      .docs__box-title {
-        display: flex;
-        flex-direction: row;
-        font-size: 1.125rem;
-        line-height: 1.75rem;
-        font-weight: 700;
-        margin-bottom: 2rem;
-        gap: 0.5rem;
-        align-items: center;
-      }
-
-      .docs__box-message {
-        font-size: 0.875rem;
-        line-height: 1.25rem;
-        color: #4b5563;
-      }
-
-      .docs__box-arrow {
-        pointer-events: none;
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
-        transition-property: all;
-        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-        transition-duration: 150ms;
-        color: #d1d5db;
-      }
-
-      &:hover {
-        .docs__box-arrow {
-          color: #9ca3af;
-          transform: translate(00.375rem, 0) rotate(0) skewX(0) skewY(0) scaleX(1) scaleY(1);
-        }
-      }
-    }
+  .grid,
+  .scope-panel {
+    grid-template-columns: 1fr;
   }
 
-  @media (min-width: 640px) {
-    .docs {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+  .primary-button {
+    width: 100%;
+    text-align: center;
   }
 }
 </style>

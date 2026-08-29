@@ -8,17 +8,18 @@ export default definePlugin({
     {
       parentName: 'Root',
       route: {
-        path: '/example',
-        name: 'Example',
+        path: '/halo-cli',
+        name: 'HaloCli',
         component: () => import(/* webpackChunkName: "HomeView" */ './views/HomeView.vue'),
         meta: {
-          title: '示例页面',
+          title: 'Halo CLI',
           searchable: true,
+          permissions: ['plugin:halo-cli:download:view'],
           menu: {
-            name: '示例页面',
-            group: '示例分组',
+            name: 'Halo CLI',
+            group: 'tool',
             icon: markRaw(IconPlug),
-            priority: 0,
+            priority: 20,
           },
         },
       },

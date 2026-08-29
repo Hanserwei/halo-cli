@@ -17,15 +17,13 @@
     "@halo-dev/components": "^2.26.0",
     "@halo-dev/ui-shared": "^2.26.0",
     "axios": "^1.19.0",
-    "canvas-confetti": "^1.9.4",
-    "vue": "^3.5.40"
+    "vue": "3.5.41"
   },
   "devDependencies": {
     "vite": "^8.2.0",
     "@halo-dev/ui-plugin-bundler-kit": "^2.26.0",
     "@iconify-json/ri": "^1.2.10",
     "@tsconfig/node24": "^24.0.4",
-    "@types/canvas-confetti": "^1.9.0",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^24.13.3",
     "@vitejs/plugin-vue": "^6.0.8",
