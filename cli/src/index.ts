@@ -1,37 +1,54 @@
 import { cac, type CAC } from 'cac'
 
 import { registerAuthCommands } from './commands/auth.js'
+import { registerAttachmentCommands } from './commands/attachment.js'
 import { registerCategoryCommands } from './commands/category.js'
+import { registerCommentCommands } from './commands/comment.js'
+import { registerPageCommands } from './commands/page.js'
 import { registerPostCommands } from './commands/post.js'
 import { registerTagCommands } from './commands/tag.js'
 import { CliError } from './errors.js'
 
 export function createCli() {
   const cli = cac('halo-cli')
-  cli.version('0.1.0')
+  cli.version('0.2.0')
   cli.help()
   cli.command('auth', '认证和连接配置')
   cli.command('post', '文章管理')
   cli.command('category', '分类管理')
   cli.command('tag', '标签管理')
+  cli.command('page', '页面管理')
+  cli.command('comment', '评论和回复管理')
+  cli.command('attachment', '附件管理')
   return cli
 }
 
-type CommandGroup = 'auth' | 'category' | 'post' | 'tag'
+type CommandGroup = 'attachment' | 'auth' | 'category' | 'comment' | 'page' | 'post' | 'tag'
 
 function createGroupCli(group: CommandGroup): CAC {
   const cli = cac(`halo-cli ${group}`)
-  cli.version('0.1.0')
+  cli.version('0.2.0')
   cli.help()
   if (group === 'auth') registerAuthCommands(cli)
   if (group === 'post') registerPostCommands(cli)
   if (group === 'category') registerCategoryCommands(cli)
   if (group === 'tag') registerTagCommands(cli)
+  if (group === 'page') registerPageCommands(cli)
+  if (group === 'comment') registerCommentCommands(cli)
+  if (group === 'attachment') registerAttachmentCommands(cli)
   return cli
 }
 
 function isCommandGroup(value: string | undefined): value is CommandGroup {
-  return value === 'auth' || value === 'post' || value === 'category' || value === 'tag'
+  return (
+    value === 'attachment' ||
+    value === 'auth' ||
+    value === 'category' ||
+    value === 'comment' ||
+    value === 'page' ||
+    value === 'post' ||
+    value === 'tag'
+  )
 }
 
 export async function main(argv = process.argv): Promise<void> {

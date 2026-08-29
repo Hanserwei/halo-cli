@@ -1,6 +1,7 @@
 export interface Metadata {
   annotations?: Record<string, string>
   creationTimestamp?: string | null
+  deletionTimestamp?: string | null
   generateName?: string
   labels?: Record<string, string>
   name: string
@@ -53,6 +54,177 @@ export interface ContentWrapper extends Partial<Content> {
 export interface PostRequest {
   content: Content
   post: Post
+}
+
+export type Visibility = 'PUBLIC' | 'INTERNAL' | 'PRIVATE'
+
+export interface SinglePage {
+  apiVersion: 'content.halo.run/v1alpha1'
+  kind: 'SinglePage'
+  metadata: Metadata
+  spec: {
+      allowComment: boolean
+      baseSnapshot?: string
+      cover?: string
+      deleted: boolean
+      excerpt: Excerpt
+      headSnapshot?: string
+      owner?: string
+      pinned: boolean
+    priority: number
+      publish: boolean
+      publishTime?: string
+      releaseSnapshot?: string
+      slug: string
+    template?: string
+    title: string
+    visible: Visibility
+  }
+  status?: {
+    excerpt?: string
+    lastModifyTime?: string
+    permalink?: string
+    phase?: string
+  }
+}
+
+export interface SinglePageRequest {
+  content: Content
+  page: SinglePage
+}
+
+export interface ListedSinglePage {
+  page: SinglePage
+}
+
+export interface ListedSnapshot {
+  metadata: Metadata
+  spec: {
+    modifyTime?: string
+    owner: string
+  }
+}
+
+export interface SubjectRef {
+  group: string
+  kind: string
+  name: string
+  version: string
+}
+
+export interface CommentOwner {
+  displayName?: string
+  kind?: string
+  name?: string
+  [key: string]: unknown
+}
+
+export interface Comment {
+  apiVersion: 'content.halo.run/v1alpha1'
+  kind: 'Comment'
+  metadata: Metadata
+  spec: {
+    allowNotification: boolean
+    approved: boolean
+    approvedTime?: string
+    content: string
+    creationTime?: string
+    hidden: boolean
+    owner: CommentOwner
+    priority: number
+    raw: string
+    subjectRef: SubjectRef
+    top: boolean
+  }
+  status?: Record<string, unknown>
+}
+
+export interface Reply {
+  apiVersion: 'content.halo.run/v1alpha1'
+  kind: 'Reply'
+  metadata: Metadata
+  spec: {
+    allowNotification: boolean
+    approved: boolean
+    approvedTime?: string
+    commentName: string
+    content: string
+    creationTime?: string
+    hidden: boolean
+    owner: CommentOwner
+    priority: number
+    quoteReply?: string
+    raw: string
+    top: boolean
+  }
+  status?: Record<string, unknown>
+}
+
+export interface ListedComment {
+  comment: Comment
+  owner?: Record<string, unknown>
+  stats?: Record<string, unknown>
+  subject?: Record<string, unknown>
+}
+
+export interface ListedReply {
+  owner?: Record<string, unknown>
+  reply: Reply
+  stats?: Record<string, unknown>
+}
+
+export interface ReplyRequest {
+  allowNotification?: boolean
+  content: string
+  hidden?: boolean
+  quoteReply?: string
+  raw: string
+}
+
+export interface JsonPatch {
+  op: 'add' | 'remove' | 'replace'
+  path: string
+  value?: unknown
+}
+
+export interface Attachment {
+  apiVersion: 'storage.halo.run/v1alpha1'
+  kind: 'Attachment'
+  metadata: Metadata
+  spec: {
+    displayName?: string
+    groupName?: string
+    mediaType?: string
+    ownerName?: string
+    policyName?: string
+    size?: number
+    tags?: string[]
+  }
+  status?: {
+    permalink?: string
+    thumbnails?: Record<string, string>
+  }
+}
+
+export interface StoragePolicy {
+  apiVersion: 'storage.halo.run/v1alpha1'
+  kind: 'Policy'
+  metadata: Metadata
+  spec: {
+    displayName: string
+    templateName?: string
+    [key: string]: unknown
+  }
+}
+
+export interface AttachmentGroup {
+  apiVersion: 'storage.halo.run/v1alpha1'
+  kind: 'Group'
+  metadata: Metadata
+  spec: {
+    displayName: string
+  }
+  status?: Record<string, unknown>
 }
 
 export interface Category {

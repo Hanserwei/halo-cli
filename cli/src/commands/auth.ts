@@ -93,19 +93,29 @@ export function registerAuthCommands(cli: CAC): void {
       }
     })
 
-  cli.command('use <name>', '切换当前连接').action(async (name: string) => {
-    const config = await loadConfig()
-    if (!config.profiles[name]) {
-      throw new CliError(`连接配置不存在：${name}`)
-    }
-    config.currentProfile = name
-    await saveConfig(config)
-    process.stdout.write(`已切换到连接 ${name}。\n`)
-  })
+  cli
+    .command('use <name>', '切换当前连接')
+    .option('--json', '输出 JSON')
+    .action(async (name: string, options: ProfileOptions) => {
+      const config = await loadConfig()
+      const profile = config.profiles[name]
+      if (!profile) {
+        throw new CliError(`连接配置不存在：${name}`)
+      }
+      config.currentProfile = name
+      await saveConfig(config)
+      const result = { current: true, name, url: profile.url }
+      if (options.json) {
+        printJson(result)
+      } else {
+        process.stdout.write(`已切换到连接 ${name}。\n`)
+      }
+    })
 
   cli
     .command('logout [name]', '删除连接和对应令牌')
-    .action(async (name?: string) => {
+    .option('--json', '输出 JSON')
+    .action(async (name: string | undefined, options: ProfileOptions) => {
       const config = await loadConfig()
       const target = name?.trim() || config.currentProfile
       if (!target || !config.profiles[target]) {
@@ -116,6 +126,11 @@ export function registerAuthCommands(cli: CAC): void {
         config.currentProfile = Object.keys(config.profiles)[0]
       }
       await saveConfig(config)
-      process.stdout.write(`已删除连接 ${target}。\n`)
+      const result = { currentProfile: config.currentProfile ?? null, deleted: true, name: target }
+      if (options.json) {
+        printJson(result)
+      } else {
+        process.stdout.write(`已删除连接 ${target}。\n`)
+      }
     })
 }

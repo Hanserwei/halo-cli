@@ -48,4 +48,70 @@ describe('two-level command routing', () => {
     })
     expect(output).toHaveBeenCalledWith(expect.stringContaining('"verified": false'))
   })
+
+  it('supports JSON output when switching and deleting profiles', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'halo-cli-routing-'))
+    temporaryDirectories.push(directory)
+    process.env.HALO_CLI_CONFIG_DIR = directory
+    const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    for (const profile of ['one', 'two']) {
+      await main([
+        'node',
+        'halo-cli',
+        'auth',
+        'login',
+        '--profile',
+        profile,
+        '--url',
+        `https://${profile}.example`,
+        '--token',
+        'pat_test',
+        '--skip-verify',
+      ])
+    }
+
+    await main(['node', 'halo-cli', 'auth', 'use', 'one', '--json'])
+    expect(output).toHaveBeenCalledWith(expect.stringContaining('"current": true'))
+    expect(output).toHaveBeenCalledWith(expect.stringContaining('"name": "one"'))
+
+    await main(['node', 'halo-cli', 'auth', 'logout', 'one', '--json'])
+    expect(output).toHaveBeenCalledWith(expect.stringContaining('"deleted": true'))
+    expect(output).toHaveBeenCalledWith(expect.stringContaining('"currentProfile": "two"'))
+  })
+
+  it.each(['page', 'comment', 'attachment'])('routes the %s command group help', async (group) => {
+    const output = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+    await main(['node', 'halo-cli', group])
+
+    expect(output).toHaveBeenCalledWith(expect.stringContaining(`halo-cli ${group}`))
+    if (group === 'page') {
+      expect(output).toHaveBeenCalledWith(expect.stringContaining('恢复页面内容快照并发布'))
+    }
+  })
+
+  it.each([
+    ['page', 'delete', 'page-one'],
+    ['page', 'snapshot-revert', 'page-one', 'snapshot-one'],
+    ['comment', 'delete', 'comment-one'],
+    ['comment', 'reply-delete', 'reply-one'],
+    ['attachment', 'delete', 'attachment-one'],
+  ])('requires --yes for dangerous %s %s operations', async (...args) => {
+    await expect(main(['node', 'halo-cli', ...args])).rejects.toThrow('--yes')
+  })
+
+  it('rejects repeated false confirmation flags', async () => {
+    await expect(
+      main([
+        'node',
+        'halo-cli',
+        'attachment',
+        'delete',
+        'attachment-one',
+        '--yes=false',
+        '--yes=false',
+      ]),
+    ).rejects.toThrow('--yes')
+  })
 })

@@ -17,16 +17,28 @@ export async function createHaloClient(options: ConnectionOptions): Promise<Halo
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${profile.token}`,
-      'User-Agent': 'halo-cli/0.1.0',
+      'User-Agent': 'halo-cli/0.2.0',
     },
     paramsSerializer: { indexes: null },
+    maxRedirects: 0,
     timeout: 30_000,
   })
   return { http, name, url: profile.url }
 }
 
-export function resourcePath(resource: 'categories' | 'posts' | 'tags', name?: string): string {
+export function resourcePath(
+  resource: 'categories' | 'comments' | 'posts' | 'replies' | 'singlepages' | 'tags',
+  name?: string,
+): string {
   const base = `/apis/content.halo.run/v1alpha1/${resource}`
+  return name ? `${base}/${encodeURIComponent(name)}` : base
+}
+
+export function storagePath(
+  resource: 'attachments' | 'groups' | 'policies',
+  name?: string,
+): string {
+  const base = `/apis/storage.halo.run/v1alpha1/${resource}`
   return name ? `${base}/${encodeURIComponent(name)}` : base
 }
 
@@ -34,6 +46,31 @@ export function consolePostPath(name?: string, action?: string): string {
   const base = '/apis/api.console.halo.run/v1alpha1/posts'
   const resource = name ? `${base}/${encodeURIComponent(name)}` : base
   return action ? `${resource}/${action}` : resource
+}
+
+export function consoleSinglePagePath(name?: string, action?: string): string {
+  const base = '/apis/api.console.halo.run/v1alpha1/singlepages'
+  const resource = name ? `${base}/${encodeURIComponent(name)}` : base
+  return action ? `${resource}/${action}` : resource
+}
+
+export function consoleCommentPath(name?: string, action?: string): string {
+  const base = '/apis/api.console.halo.run/v1alpha1/comments'
+  const resource = name ? `${base}/${encodeURIComponent(name)}` : base
+  return action ? `${resource}/${action}` : resource
+}
+
+export function consoleReplyPath(): string {
+  return '/apis/api.console.halo.run/v1alpha1/replies'
+}
+
+export function consoleAttachmentPath(action?: string): string {
+  const base = '/apis/api.console.halo.run/v1alpha1/attachments'
+  return action ? `${base}/${action}` : base
+}
+
+export function hasSameOrigin(baseUrl: string, targetUrl: string): boolean {
+  return new URL(targetUrl, baseUrl).origin === new URL(baseUrl).origin
 }
 
 export async function waitForDeletion(

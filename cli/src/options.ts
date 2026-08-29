@@ -22,11 +22,31 @@ export function integer(value: string | number | undefined, fallback = 0): numbe
   return parsed
 }
 
-export function csv(value: string | undefined): string[] | undefined {
+export function textValue(value: unknown, optionName: string): string | undefined {
   if (value === undefined) {
     return undefined
   }
-  return value
+  if (typeof value === 'string') {
+    return value
+  }
+  if (value === 0) {
+    return ''
+  }
+  if (Array.isArray(value) && value.length === 0) {
+    return ''
+  }
+  if (Array.isArray(value) && value.length === 1 && typeof value[0] === 'string') {
+    return value[0]
+  }
+  throw new CliError(`${optionName} 只能指定一次。`)
+}
+
+export function csv(value: unknown, optionName = '该选项'): string[] | undefined {
+  const normalized = textValue(value, optionName)
+  if (normalized === undefined) {
+    return undefined
+  }
+  return normalized
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
@@ -56,8 +76,15 @@ export function required(value: string | undefined, label: string): string {
   return normalized
 }
 
-export function requireConfirmation(yes: boolean | undefined, command: string): void {
-  if (!yes) {
+export function requiredContent(value: string | undefined, label: string): string {
+  if (!value?.trim()) {
+    throw new CliError(`缺少 ${label}。`)
+  }
+  return value
+}
+
+export function requireConfirmation(yes: unknown, command: string): void {
+  if (yes !== true) {
     throw new CliError(`此操作会修改或删除数据。确认后请重新执行：${command} --yes`)
   }
 }

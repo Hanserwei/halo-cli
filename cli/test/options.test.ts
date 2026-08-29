@@ -5,15 +5,25 @@ import {
   csv,
   integer,
   positiveInteger,
+  requiredContent,
   requireConfirmation,
   slugify,
+  textValue,
 } from '../src/options.js'
 
 describe('command option parsing', () => {
   it('parses CSV values and supports explicitly clearing a list', () => {
     expect(csv('news, Halo ,cli')).toEqual(['news', 'Halo', 'cli'])
     expect(csv('')).toEqual([])
+    expect(csv([], '--tags')).toEqual([])
     expect(csv(undefined)).toBeUndefined()
+  })
+
+  it('normalizes CAC empty and repeated text option values', () => {
+    expect(textValue([], '--group')).toBe('')
+    expect(textValue(0, '--group')).toBe('')
+    expect(textValue(['group-one'], '--group')).toBe('group-one')
+    expect(() => textValue(['one', 'two'], '--group')).toThrow('只能指定一次')
   })
 
   it('validates numeric options', () => {
@@ -36,6 +46,12 @@ describe('command option parsing', () => {
 
   it('requires an explicit confirmation for destructive commands', () => {
     expect(() => requireConfirmation(false, 'halo-cli post delete test')).toThrow('--yes')
+    expect(() => requireConfirmation([false, false], 'halo-cli post delete test')).toThrow('--yes')
     expect(() => requireConfirmation(true, 'ignored')).not.toThrow()
+  })
+
+  it('validates content without trimming meaningful whitespace', () => {
+    expect(requiredContent('  indented\n', '正文')).toBe('  indented\n')
+    expect(() => requiredContent(' \n\t ', '正文')).toThrow('缺少')
   })
 })

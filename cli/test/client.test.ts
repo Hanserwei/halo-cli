@@ -1,7 +1,27 @@
-import type { AxiosInstance } from 'axios'
+import axios, { type AxiosInstance } from 'axios'
 import { describe, expect, it, vi } from 'vitest'
 
-import { waitForDeletion } from '../src/client.js'
+import { createHaloClient, waitForDeletion } from '../src/client.js'
+
+describe('Halo HTTP client', () => {
+  it('disables automatic redirects for authenticated requests', async () => {
+    const http = {} as AxiosInstance
+    const create = vi.spyOn(axios, 'create').mockReturnValue(http)
+
+    await expect(
+      createHaloClient({ token: 'pat_test', url: 'https://halo.example' }),
+    ).resolves.toMatchObject({ http, url: 'https://halo.example' })
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxRedirects: 0,
+        timeout: 30_000,
+        headers: expect.objectContaining({ Authorization: 'Bearer pat_test' }),
+      }),
+    )
+    create.mockRestore()
+  })
+})
 
 describe('asynchronous Halo deletion', () => {
   it('waits until the resource returns 404', async () => {

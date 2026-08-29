@@ -12,6 +12,7 @@ import {
   integer,
   positiveInteger,
   required,
+  requiredContent,
   requireConfirmation,
   slugify,
 } from '../options.js'
@@ -84,7 +85,7 @@ function visibility(value: string | undefined, fallback: Post['spec']['visible']
 
 export async function buildCreatePostRequest(options: PostOptions): Promise<PostRequest> {
   const title = required(options.title, '文章标题（--title）')
-  const raw = required(await resolveRaw(options), '文章正文（--content 或 --file）')
+  const raw = requiredContent(await resolveRaw(options), '文章正文（--content 或 --file）')
   const rawType = options.rawType?.trim() || 'markdown'
   const excerpt = options.excerpt?.trim()
 
