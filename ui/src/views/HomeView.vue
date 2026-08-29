@@ -21,14 +21,14 @@ async function copyInstallCommand() {
       <div>
         <span class="eyebrow">HALO CONTENT TOOLING</span>
         <h1>Halo CLI</h1>
-        <p>在终端中管理 Halo 文章、分类和标签。单文件分发，无需在服务器安装插件之外的服务。</p>
+        <p>在终端中管理 Halo 文章、页面、分类、标签、评论和附件。单文件分发，无需额外服务。</p>
       </div>
       <a class="primary-button" :href="downloadPath" download="halo-cli.cjs">下载 CLI</a>
     </header>
 
     <div class="notice">
       <strong>运行要求</strong>
-      <span>Node.js 20.19 或更高版本。当前为第一期 0.1.0。</span>
+      <span>Node.js 20.19 或更高版本。当前版本为 0.2.0。</span>
     </div>
 
     <article class="panel install-panel">
@@ -69,6 +69,9 @@ async function copyInstallCommand() {
         </div>
         <pre><code>halo-cli post list
 halo-cli post create --title "Hello" --file post.md --publish
+halo-cli page list
+halo-cli comment list --approved false
+halo-cli attachment policies
 halo-cli category list
 halo-cli tag create --display-name "Halo"</code></pre>
         <p class="hint">所有查询命令均支持 <code>--json</code>，可直接用于脚本和 CI。</p>
@@ -82,14 +85,14 @@ halo-cli tag create --display-name "Halo"</code></pre>
       </div>
       <div class="scope-list">
         <div class="scope-item ready">
-          <span>第一期 · 已完成</span>
+          <span>0.1 · 已完成</span>
           <strong>文章 / 分类 / 标签</strong>
           <small>查询、创建、更新、发布、回收与删除</small>
         </div>
-        <div class="scope-item">
-          <span>第二期 · 计划中</span>
+        <div class="scope-item ready">
+          <span>0.2 · 已完成</span>
           <strong>页面 / 评论 / 附件</strong>
-          <small>沿用同一认证、输出与错误处理体系</small>
+          <small>页面快照、评论审核回复、附件上传下载</small>
         </div>
       </div>
     </article>

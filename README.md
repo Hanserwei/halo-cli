@@ -7,7 +7,7 @@
 
 Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 Halo 内容。插件在 Console 中提供 CLI 下载入口，CLI 通过 Halo 官方 REST API 和个人令牌访问一个或多个 Halo 站点。
 
-当前版本为 `0.1.0`，已实现文章、分类和标签管理，兼容 Halo `2.26+`。
+当前版本为 `0.2.0`，已实现文章、页面、分类、标签、评论和附件管理，兼容 Halo `2.26+`。
 
 > [!NOTE]
 > 本项目是社区插件，与 Halo 官方发布的 [`@halo-dev/cli`](https://github.com/halo-dev/cli) 相互独立。
@@ -17,6 +17,9 @@ Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 H
 - 单文件 CLI：插件内嵌 `halo-cli.cjs`，下载后无需安装额外 npm 依赖
 - 多环境管理：可保存多套站点配置，也可完全通过环境变量运行
 - 文章工作流：支持草稿、发布、取消发布、回收、恢复和永久删除
+- 页面工作流：支持独立页面生命周期以及内容快照查询、恢复和删除
+- 评论审核：支持评论与回复查询、批准、取消批准、回复和异步删除
+- 附件管理：支持本地上传、URL 转存、查询、更新、下载和异步删除
 - 内容属性：支持多分类、多标签、公开/内部/私密可见性、置顶和评论开关
 - 多级分类：通过父分类 `metadata.name` 创建任意层级结构
 - 自动化友好：所有查询及写操作均可输出 JSON
@@ -34,19 +37,19 @@ Halo Console
 Terminal ── halo-cli ──┴── Bearer PAT ──> Halo Core / Console REST API
 ```
 
-插件只负责分发 CLI，不代理文章、分类或标签请求。CLI 直接连接目标 Halo，因此同一个 CLI 可以管理多个站点。
+插件只负责分发 CLI，不代理内容管理请求。CLI 直接连接目标 Halo，因此同一个 CLI 可以管理多个站点。
 
 ## 功能状态
 
-| 资源 | 第一阶段能力 | 状态 |
+| 资源 | 能力 | 状态 |
 | --- | --- | --- |
 | 认证 | 登录验证、多 Profile、环境变量、切换和退出 | 已完成 |
 | 文章 | 列表、详情、创建、更新、发布、取消发布、回收、恢复、永久删除 | 已完成 |
 | 分类 | 列表、详情、多级创建、更新、删除 | 已完成 |
 | 标签 | 列表、详情、创建、更新、删除 | 已完成 |
-| 页面 | 页面内容与发布状态管理 | 第二阶段 |
-| 评论 | 评论、回复与审核管理 | 第二阶段 |
-| 附件 | 上传、查询和删除 | 第二阶段 |
+| 页面 | 内容、发布状态、回收站和内容快照管理 | 已完成 |
+| 评论 | 评论与回复查询、审核、回复和删除 | 已完成 |
+| 附件 | 查询、本地上传、URL 转存、更新、下载和删除 | 已完成 |
 
 ## 安装
 
@@ -112,6 +115,9 @@ halo-cli auth current
 
 # 查询内容
 halo-cli post list
+halo-cli page list
+halo-cli comment list
+halo-cli attachment list
 halo-cli category list
 halo-cli tag list
 
@@ -120,7 +126,7 @@ halo-cli --help
 halo-cli post create --help
 ```
 
-资源的 `<name>` 均表示 Halo `metadata.name`，不是文章标题、分类显示名称或标签显示名称。可以通过对应的 `list` 命令获取。
+资源的 `<name>` 均表示 Halo `metadata.name`，不是标题或显示名称。可以通过对应的 `list` 命令获取。
 
 ## 命令参考
 
@@ -229,12 +235,101 @@ halo-cli tag delete <tag-name> --yes
 
 标签颜色必须使用 `#fff` 或 `#ffffff` 格式。
 
+### 页面与内容快照
+
+页面命令与文章命令使用相同的 Markdown、可见性和发布状态约定：
+
+```bash
+halo-cli page create \
+  --title "关于本站" \
+  --slug about \
+  --file ./about.md \
+  --visible PUBLIC \
+  --publish
+
+halo-cli page update <page-name> --file ./about-new.md
+halo-cli page unpublish <page-name>
+halo-cli page recycle <page-name> --yes
+halo-cli page restore <page-name> --yes
+```
+
+页面正文由 Halo 内容快照保存，可以独立查询：
+
+```bash
+halo-cli page snapshot-list <page-name>
+halo-cli page snapshot-get <page-name> <snapshot-name>
+halo-cli page snapshot-revert <page-name> <snapshot-name> --yes
+halo-cli page snapshot-delete <page-name> <snapshot-name> --yes
+```
+
+> [!WARNING]
+> Halo 2.26 在恢复到不同于当前 `headSnapshot` 的历史快照时，会创建新的正文快照并立即发布页面，因此 `snapshot-revert` 明确要求 `--yes`。如果目标已经是当前草稿头，CLI 会拒绝无效恢复；需要发布时请改用 `page publish`。
+
+### 评论与回复
+
+Halo 2.26 的 Console 评论审核模型是“批准/取消批准”，没有独立的垃圾评论或回收站状态：
+
+```bash
+halo-cli comment list --approved false
+halo-cli comment get <comment-name>
+halo-cli comment approve <comment-name>
+halo-cli comment unapprove <comment-name>
+
+halo-cli comment replies <comment-name>
+halo-cli comment reply <comment-name> --content "感谢反馈"
+halo-cli comment reply <comment-name> \
+  --content "补充说明" \
+  --quote <reply-name>
+halo-cli comment reply-unapprove <reply-name>
+```
+
+按文章或页面筛选评论时，主题引用使用 `group/kind/name`：
+
+```bash
+halo-cli comment list \
+  --subject content.halo.run/Post/<post-name>
+```
+
+删除评论会由 Halo 异步级联删除其回复；评论和回复删除命令均要求 `--yes`，并等待资源真正消失后才报告成功。
+
+### 附件
+
+上传前先查询 Halo 中可用的存储策略与附件分组：
+
+```bash
+halo-cli attachment policies
+halo-cli attachment groups
+
+halo-cli attachment upload \
+  --file ./cover.png \
+  --policy <policy-name> \
+  --group <group-name>
+
+halo-cli attachment upload-url https://example.com/image.png \
+  --policy <policy-name> \
+  --filename image.png
+```
+
+附件“重命名”只修改 `spec.displayName`，不会改变 `metadata.name` 或永久链接：
+
+```bash
+halo-cli attachment update <attachment-name> --display-name cover.png
+halo-cli attachment update <attachment-name> --group <group-name>
+halo-cli attachment update <attachment-name> --group ""
+halo-cli attachment download <attachment-name> --output ./cover.png
+halo-cli attachment delete <attachment-name> --yes
+```
+
+下载默认拒绝覆盖已有文件，必须显式使用 `--force` 才会覆盖。CLI 会逐次检查重定向目标，只有与 Halo 同源的请求才携带 PAT；外部对象存储请求不会携带 Halo 凭据。
+
 ## JSON 与自动化
 
 所有查询和写操作都支持 `--json`，错误信息写入 stderr，失败时退出码非零：
 
 ```bash
 halo-cli post list --json | jq '.items[].post.spec.title'
+halo-cli page list --json | jq '.items[].page.spec.title'
+halo-cli attachment list --json | jq '.items[].status.permalink'
 halo-cli category list --json | jq '.items[] | {name: .metadata.name, title: .spec.displayName}'
 ```
 
@@ -270,6 +365,7 @@ halo-cli post list --json
 - 公共/共享机器优先使用 `HALO_TOKEN` 环境变量
 - 只授予 PAT 完成目标操作所需的最小权限
 - PAT 一旦出现在聊天、日志或 Shell 历史中，应立即撤销并重新生成
+- 配置的 Halo 地址发生 HTTP 重定向时，CLI 会拒绝自动跟随，避免令牌或上传正文跨源重放
 
 CLI 不会在 `auth list`、`auth current` 或正常错误输出中显示令牌。
 
@@ -311,7 +407,7 @@ pnpm build
 ./gradlew clean build
 ```
 
-该命令会执行 Java 测试、CLI 类型检查与单元测试、Console UI 类型检查和生产构建，并验证 CLI 已被嵌入插件 JAR。
+该命令会执行 Java 测试、CLI 类型检查与测试、Console UI 类型检查和生产构建，并验证 CLI 已被嵌入插件 JAR。CLI 测试还包含本地 HTTP 重定向场景，验证 PAT 不会被发送到外部附件源。
 
 ## 项目结构
 
@@ -325,9 +421,9 @@ src/main/resources/   插件清单与 RBAC 角色模板
 
 ## 路线图
 
-- `0.1.x`：完善文章、分类、标签体验和发布流程
+- `0.1.x`：文章、分类和标签管理
 - `0.2.x`：页面、评论和附件管理
-- 后续：批量操作、导入导出、Shell 补全和更多内容类型
+- 后续：批量操作、导入导出、Shell 补全、附件分组/策略管理和更多内容类型
 
 欢迎通过 [Issues](https://github.com/hanserwei/halo-cli/issues) 提交问题或建议。
 

@@ -23,4 +23,15 @@ halo-cli auth login --url http://127.0.0.1:8090 --token pat_xxx
 
 也可使用 `HALO_BASE_URL`、`HALO_TOKEN` 和可选的 `HALO_PROFILE` 环境变量。
 
-运行 `halo-cli --help` 查看文章、分类和标签命令。
+运行 `halo-cli --help` 查看全部命令组：
+
+```bash
+halo-cli post --help
+halo-cli page --help
+halo-cli category --help
+halo-cli tag --help
+halo-cli comment --help
+halo-cli attachment --help
+```
+
+页面命令覆盖发布、回收站和内容快照；评论命令覆盖审核与回复；附件命令覆盖策略/分组查询、本地上传、URL 转存、更新、流式下载和删除。所有查询及写操作都支持 `--json`，不可逆操作必须显式传入 `--yes`。
