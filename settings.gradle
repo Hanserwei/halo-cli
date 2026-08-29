@@ -4,4 +4,4 @@ pluginManagement {
     }
 }
 rootProject.name = 'plugin-halo-cli'
-include 'ui'
+include 'cli', 'ui'

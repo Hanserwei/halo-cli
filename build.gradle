@@ -41,8 +41,15 @@ tasks.register('processUiResources', Copy) {
     shouldRunAfter tasks.named('processResources')
 }
 
+tasks.register('processCliResources', Copy) {
+    from project(':cli').layout.projectDirectory.dir('dist')
+    into layout.buildDirectory.dir('resources/main/cli')
+    dependsOn project(':cli').tasks.named('assemble')
+    shouldRunAfter tasks.named('processResources')
+}
+
 tasks.named('classes') {
-    dependsOn tasks.named('processUiResources')
+    dependsOn tasks.named('processCliResources'), tasks.named('processUiResources')
 }
 
 tasks.named('generatePluginComponentsIdx') {

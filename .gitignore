@@ -81,5 +81,7 @@ application-local.yaml
 application-local.properties
 
 /ui/build/
+/cli/build/
+/cli/dist/
 /workplace/
 /src/main/resources/ui/
