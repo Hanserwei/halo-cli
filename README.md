@@ -7,7 +7,7 @@
 
 Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 Halo 内容。插件在 Console 中提供 CLI 下载入口，CLI 通过 Halo 官方 REST API 和个人令牌访问一个或多个 Halo 站点。
 
-当前版本为 `0.2.0`，已实现文章、页面、分类、标签、评论和附件管理，兼容 Halo `2.26+`。
+当前版本为 `0.3.0`，已实现文章、页面、分类、标签、评论、附件和菜单管理，兼容 Halo `2.26+`。
 
 > [!NOTE]
 > 本项目是社区插件，与 Halo 官方发布的 [`@halo-dev/cli`](https://github.com/halo-dev/cli) 相互独立。
@@ -20,6 +20,7 @@ Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 H
 - 页面工作流：支持独立页面生命周期以及内容快照查询、恢复和删除
 - 评论审核：支持评论与回复查询、批准、取消批准、回复和异步删除
 - 附件管理：支持本地上传、URL 转存、查询、更新、下载和异步删除
+- 菜单管理：支持主菜单、菜单复制、内容引用、任意层级和拖拽等价排序
 - 内容属性：支持多分类、多标签、公开/内部/私密可见性、置顶和评论开关
 - 多级分类：通过父分类 `metadata.name` 创建任意层级结构
 - 自动化友好：所有查询及写操作均可输出 JSON
@@ -50,6 +51,7 @@ Terminal ── halo-cli ──┴── Bearer PAT ──> Halo Core / Console 
 | 页面 | 内容、发布状态、回收站和内容快照管理 | 已完成 |
 | 评论 | 评论与回复查询、审核、回复和删除 | 已完成 |
 | 附件 | 查询、本地上传、URL 转存、更新、下载和删除 | 已完成 |
+| 菜单 | 菜单组、主菜单、复制、菜单项树、内容引用、移动和删除 | 已完成 |
 
 ## 安装
 
@@ -118,6 +120,7 @@ halo-cli post list
 halo-cli page list
 halo-cli comment list
 halo-cli attachment list
+halo-cli menu list
 halo-cli category list
 halo-cli tag list
 
@@ -322,6 +325,77 @@ halo-cli attachment delete <attachment-name> --yes
 
 下载默认拒绝覆盖已有文件，必须显式使用 `--force` 才会覆盖。CLI 会逐次检查重定向目标，只有与 Halo 同源的请求才携带 PAT；外部对象存储请求不会携带 Halo 凭据。
 
+### 菜单与导航
+
+菜单命令对应 Halo Console 的「外观 / 菜单」页面。先查看菜单和当前主菜单：
+
+PAT 对应用户至少需要 Halo 的「Menu View」角色；创建、更新、移动、复制、设置主菜单和删除需要「Menu Manage」角色。
+
+```bash
+halo-cli menu list
+halo-cli menu primary
+halo-cli menu tree primary
+```
+
+创建菜单并设置为主菜单：
+
+```bash
+menu_name=$(halo-cli menu create \
+  --display-name "站点导航" \
+  --json | jq -r '.metadata.name')
+
+halo-cli menu set-primary "${menu_name}"
+```
+
+菜单项支持自定义链接，也可以引用文章、页面、分类或标签。引用型菜单项的显示名称和链接由 Halo 根据目标资源自动解析：
+
+```bash
+# 自定义根菜单项
+home_item=$(halo-cli menu item-create \
+  --menu "${menu_name}" \
+  --display-name "首页" \
+  --href / \
+  --target _self \
+  --json | jq -r '.metadata.name')
+
+# 引用页面
+halo-cli menu item-create \
+  --menu "${menu_name}" \
+  --ref-kind page \
+  --ref-name <single-page-name>
+
+# 在“首页”下面引用分类
+halo-cli menu item-create \
+  --menu "${menu_name}" \
+  --parent "${home_item}" \
+  --ref-kind category \
+  --ref-name <category-name>
+```
+
+移动命令与 Console 拖拽使用相同的 Halo 2.26 position API。`--parent ""` 表示根级，`--before` 表示放到指定同级项之前；省略 `--before` 表示追加到末尾：
+
+```bash
+halo-cli menu item-move <menu-item-name> \
+  --menu "${menu_name}" \
+  --parent "" \
+  --before <root-sibling-name>
+```
+
+其他管理操作：
+
+```bash
+halo-cli menu item-get <menu-item-name>
+halo-cli menu item-update <menu-item-name> --target _blank
+halo-cli menu clone "${menu_name}" --display-name "站点导航副本"
+halo-cli menu item-delete <menu-item-name> --yes
+halo-cli menu delete <menu-name> --yes
+```
+
+`item-delete` 会删除目标菜单项及其全部后代。`menu delete` 会使用 Console 级联删除端点并等待菜单和所有菜单项真正返回 404；当前主菜单不能删除，必须先用 `set-primary` 切换到其他菜单。
+
+> [!NOTE]
+> Halo 2.26 已弃用 `Menu.spec.menuItems` 和 `MenuItem.spec.children` 作为层级来源。CLI 只通过 `MenuItem.spec.menuName`、`parent`、`priority` 和 Console position API 管理树结构。
+
 ## JSON 与自动化
 
 所有查询和写操作都支持 `--json`，错误信息写入 stderr，失败时退出码非零：
@@ -330,6 +404,7 @@ halo-cli attachment delete <attachment-name> --yes
 halo-cli post list --json | jq '.items[].post.spec.title'
 halo-cli page list --json | jq '.items[].page.spec.title'
 halo-cli attachment list --json | jq '.items[].status.permalink'
+halo-cli menu tree primary --json | jq '.. | objects | .menuItem?.metadata.name // empty'
 halo-cli category list --json | jq '.items[] | {name: .metadata.name, title: .spec.displayName}'
 ```
 
@@ -423,6 +498,7 @@ src/main/resources/   插件清单与 RBAC 角色模板
 
 - `0.1.x`：文章、分类和标签管理
 - `0.2.x`：页面、评论和附件管理
+- `0.3.x`：菜单组、主菜单和树形菜单项管理
 - 后续：批量操作、导入导出、Shell 补全、附件分组/策略管理和更多内容类型
 
 欢迎通过 [Issues](https://github.com/hanserwei/halo-cli/issues) 提交问题或建议。
