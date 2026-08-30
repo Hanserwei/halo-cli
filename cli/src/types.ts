@@ -227,6 +227,60 @@ export interface AttachmentGroup {
   status?: Record<string, unknown>
 }
 
+export interface ExtensionRef {
+  group: string
+  kind: string
+  name: string
+  version?: string
+}
+
+export interface Menu {
+  apiVersion: 'v1alpha1'
+  kind: 'Menu'
+  metadata: Metadata
+  spec: {
+    displayName: string
+    menuItems?: string[]
+  }
+}
+
+export type MenuItemTarget = '_blank' | '_parent' | '_self' | '_top'
+
+export interface MenuItem {
+  apiVersion: 'v1alpha1'
+  kind: 'MenuItem'
+  metadata: Metadata
+  spec: {
+    children?: string[]
+    displayName?: string
+    href?: string
+    menuName?: string
+    parent?: string
+    priority?: number
+    target?: MenuItemTarget
+    targetRef?: ExtensionRef
+  }
+  status?: {
+    displayName?: string
+    href?: string
+  }
+}
+
+export interface MenuItemTreeNode {
+  children: MenuItemTreeNode[]
+  menuItem: MenuItem
+}
+
+export interface MenuItemPositionRequest {
+  beforeName?: string
+  menuName: string
+  parentName?: string
+}
+
+export interface MenuSystemConfig {
+  primary?: string
+}
+
 export interface Category {
   apiVersion: 'content.halo.run/v1alpha1'
   kind: 'Category'

@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest'
 import {
   consoleAttachmentPath,
   consoleCommentPath,
+  consoleMenuItemPath,
+  consoleMenuPath,
   consolePostPath,
   consoleReplyPath,
   consoleSinglePagePath,
+  menuPath,
   resourcePath,
   storagePath,
+  systemConfigPath,
 } from '../src/client.js'
 import { buildAttachmentPatch } from '../src/commands/attachment.js'
 import { buildCategory } from '../src/commands/category.js'
@@ -93,6 +97,17 @@ describe('Halo resources', () => {
     )
     expect(storagePath('attachments', 'image/one')).toBe(
       '/apis/storage.halo.run/v1alpha1/attachments/image%2Fone',
+    )
+    expect(menuPath('menus', 'main/menu')).toBe('/api/v1alpha1/menus/main%2Fmenu')
+    expect(menuPath('menuitems', 'item/one')).toBe('/api/v1alpha1/menuitems/item%2Fone')
+    expect(consoleMenuPath('main/menu')).toBe(
+      '/apis/api.console.halo.run/v1alpha1/menus/main%2Fmenu',
+    )
+    expect(consoleMenuItemPath('item/one', 'position')).toBe(
+      '/apis/api.console.halo.run/v1alpha1/menuitems/item%2Fone/position',
+    )
+    expect(systemConfigPath('menu/group')).toBe(
+      '/apis/console.api.halo.run/v1alpha1/systemconfigs/menu%2Fgroup',
     )
   })
 

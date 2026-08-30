@@ -11,6 +11,9 @@ import type {
   ListedReply,
   ListedSinglePage,
   ListedSnapshot,
+  Menu,
+  MenuItem,
+  MenuItemTreeNode,
   Page,
   Post,
   Reply,
@@ -249,6 +252,85 @@ export function printAttachmentGroupList(page: Page<AttachmentGroup>, json = fal
     page.items.map((group) => [group.metadata.name, group.spec.displayName]),
   )
   process.stdout.write(`第 ${page.page || 1}/${page.totalPages || 1} 页，共 ${page.total} 个附件分组\n`)
+}
+
+export function printMenuList(
+  page: Page<Menu>,
+  primary: string | undefined,
+  itemCounts: Record<string, number>,
+  json = false,
+): void {
+  if (json) {
+    printJson({ ...page, itemCounts, primary })
+    return
+  }
+  printTable(
+    ['NAME', 'DISPLAY NAME', 'PRIMARY', 'ITEMS', 'CREATED'],
+    page.items.map((menu) => [
+      menu.metadata.name,
+      menu.spec.displayName,
+      menu.metadata.name === primary ? 'yes' : '-',
+      itemCounts[menu.metadata.name] ?? 0,
+      timestamp(menu.metadata.creationTimestamp),
+    ]),
+  )
+  process.stdout.write(`第 ${page.page || 1}/${page.totalPages || 1} 页，共 ${page.total} 个菜单\n`)
+}
+
+export function printMenu(menu: Menu, json = false): void {
+  if (json) {
+    printJson(menu)
+    return
+  }
+  printTable(['FIELD', 'VALUE'], [
+    ['Name', menu.metadata.name],
+    ['Display name', menu.spec.displayName],
+    ['Created', timestamp(menu.metadata.creationTimestamp)],
+    ['Deleting', String(Boolean(menu.metadata.deletionTimestamp))],
+  ])
+}
+
+export function printMenuItem(menuItem: MenuItem, json = false): void {
+  if (json) {
+    printJson(menuItem)
+    return
+  }
+  const ref = menuItem.spec.targetRef
+  printTable(['FIELD', 'VALUE'], [
+    ['Name', menuItem.metadata.name],
+    ['Menu', menuItem.spec.menuName ?? '-'],
+    ['Parent', menuItem.spec.parent ?? '-'],
+    ['Display name', menuItem.status?.displayName ?? menuItem.spec.displayName ?? '-'],
+    ['Href', menuItem.status?.href ?? menuItem.spec.href ?? '-'],
+    ['Target', menuItem.spec.target ?? '_self'],
+    ['Priority', menuItem.spec.priority ?? 0],
+    ['Source', ref ? `${ref.kind}/${ref.name}` : 'custom'],
+  ])
+}
+
+export function printMenuItemTree(tree: MenuItemTreeNode[], json = false): void {
+  if (json) {
+    printJson(tree)
+    return
+  }
+  const rows: Array<Array<string | number>> = []
+  const visit = (nodes: MenuItemTreeNode[], depth: number) => {
+    for (const node of nodes) {
+      const item = node.menuItem
+      const ref = item.spec.targetRef
+      rows.push([
+        depth,
+        item.metadata.name,
+        `${'  '.repeat(depth)}${item.status?.displayName ?? item.spec.displayName ?? '-'}`,
+        item.status?.href ?? item.spec.href ?? '-',
+        item.spec.target ?? '_self',
+        ref ? `${ref.kind}/${ref.name}` : 'custom',
+      ])
+      visit(node.children, depth + 1)
+    }
+  }
+  visit(tree, 0)
+  printTable(['DEPTH', 'NAME', 'DISPLAY NAME', 'HREF', 'TARGET', 'SOURCE'], rows)
 }
 
 export function printCategoryList(page: Page<Category>, json = false): void {

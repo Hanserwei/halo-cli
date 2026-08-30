@@ -17,7 +17,7 @@ export async function createHaloClient(options: ConnectionOptions): Promise<Halo
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${profile.token}`,
-      'User-Agent': 'halo-cli/0.2.0',
+      'User-Agent': 'halo-cli/0.3.0',
     },
     paramsSerializer: { indexes: null },
     maxRedirects: 0,
@@ -40,6 +40,26 @@ export function storagePath(
 ): string {
   const base = `/apis/storage.halo.run/v1alpha1/${resource}`
   return name ? `${base}/${encodeURIComponent(name)}` : base
+}
+
+export function menuPath(resource: 'menuitems' | 'menus', name?: string): string {
+  const base = `/api/v1alpha1/${resource}`
+  return name ? `${base}/${encodeURIComponent(name)}` : base
+}
+
+export function consoleMenuPath(name?: string): string {
+  const base = '/apis/api.console.halo.run/v1alpha1/menus'
+  return name ? `${base}/${encodeURIComponent(name)}` : base
+}
+
+export function consoleMenuItemPath(name?: string, action?: string): string {
+  const base = '/apis/api.console.halo.run/v1alpha1/menuitems'
+  const resource = name ? `${base}/${encodeURIComponent(name)}` : base
+  return action ? `${resource}/${action}` : resource
+}
+
+export function systemConfigPath(group: string): string {
+  return `/apis/console.api.halo.run/v1alpha1/systemconfigs/${encodeURIComponent(group)}`
 }
 
 export function consolePostPath(name?: string, action?: string): string {

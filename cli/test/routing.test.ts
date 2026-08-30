@@ -80,7 +80,7 @@ describe('two-level command routing', () => {
     expect(output).toHaveBeenCalledWith(expect.stringContaining('"currentProfile": "two"'))
   })
 
-  it.each(['page', 'comment', 'attachment'])('routes the %s command group help', async (group) => {
+  it.each(['page', 'comment', 'attachment', 'menu'])('routes the %s command group help', async (group) => {
     const output = vi.spyOn(console, 'log').mockImplementation(() => undefined)
 
     await main(['node', 'halo-cli', group])
@@ -97,6 +97,8 @@ describe('two-level command routing', () => {
     ['comment', 'delete', 'comment-one'],
     ['comment', 'reply-delete', 'reply-one'],
     ['attachment', 'delete', 'attachment-one'],
+    ['menu', 'delete', 'menu-one'],
+    ['menu', 'item-delete', 'menu-item-one'],
   ])('requires --yes for dangerous %s %s operations', async (...args) => {
     await expect(main(['node', 'halo-cli', ...args])).rejects.toThrow('--yes')
   })
