@@ -16,7 +16,7 @@ spec:
   repo: https://github.com/hanserwei/halo-cli
   issues: https://github.com/hanserwei/halo-cli/issues
   displayName: "Halo CLI"
-  description: "在终端中管理 Halo 文章、分类和标签"
+  description: "在终端中管理 Halo 内容、主题配置和插件 Extension"
   license:
     - name: "GPL-3.0"
       url: "https://github.com/hanserwei/halo-cli/blob/main/LICENSE"

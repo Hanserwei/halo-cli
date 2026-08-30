@@ -21,14 +21,14 @@ async function copyInstallCommand() {
       <div>
         <span class="eyebrow">HALO CONTENT TOOLING</span>
         <h1>Halo CLI</h1>
-        <p>在终端中管理 Halo 文章、页面、分类、标签、评论、附件、菜单以及插件和主题配置。单文件分发，无需额外服务。</p>
+        <p>在终端中管理 Halo 内容、插件和主题配置、Extension 资源，以及 Hao 主题常用插件。单文件分发，无需额外服务。</p>
       </div>
       <a class="primary-button" :href="downloadPath" download="halo-cli.cjs">下载 CLI</a>
     </header>
 
     <div class="notice">
       <strong>运行要求</strong>
-      <span>Node.js 20.19 或更高版本。当前版本为 0.4.0。</span>
+      <span>Node.js 20.19 或更高版本。当前版本为 0.5.0。</span>
     </div>
 
     <article class="panel install-panel">
@@ -76,6 +76,9 @@ halo-cli menu list
 halo-cli menu tree primary
 halo-cli plugin list
 halo-cli theme current
+halo-cli hao doctor
+halo-cli extension presets
+halo-cli search query "Halo"
 halo-cli category list
 halo-cli tag create --display-name "Halo"</code></pre>
         <p class="hint">所有查询命令均支持 <code>--json</code>，可直接用于脚本和 CI。</p>
@@ -107,6 +110,11 @@ halo-cli tag create --display-name "Halo"</code></pre>
           <span>0.4 · 已完成</span>
           <strong>插件 / 主题配置</strong>
           <small>发现、Schema、当前配置读取与 JSON 导出（只读）</small>
+        </div>
+        <div class="scope-item ready">
+          <span>0.5 · 已完成</span>
+          <strong>Hao / Extension / 插件 API</strong>
+          <small>配置写入、依赖体检、通用 CRUD、搜索与同站 API</small>
         </div>
       </div>
     </article>
@@ -270,6 +278,7 @@ code {
 
 .scope-list {
   align-items: stretch;
+  flex-wrap: wrap;
 }
 
 .scope-item {
@@ -277,6 +286,7 @@ code {
   flex: 1;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 11rem;
   padding: 1rem;
   color: #657086;
   border: 1px solid #e1e5ee;
