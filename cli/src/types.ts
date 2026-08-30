@@ -312,6 +312,15 @@ export interface Theme {
     requires?: string
     repo?: string
     settingName?: string
+    customTemplates?: Record<
+      string,
+      Array<{
+        description?: string
+        file: string
+        name: string
+        screenshot?: string
+      }>
+    >
     version?: string
     [key: string]: unknown
   }
@@ -329,6 +338,15 @@ export interface Setting {
 }
 
 export type JsonObject = Record<string, unknown>
+
+export interface HaloExtension {
+  apiVersion: string
+  kind: string
+  metadata: Metadata
+  spec?: Record<string, unknown>
+  status?: Record<string, unknown>
+  [key: string]: unknown
+}
 
 export interface Category {
   apiVersion: 'content.halo.run/v1alpha1'

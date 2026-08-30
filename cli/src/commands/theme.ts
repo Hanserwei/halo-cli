@@ -8,7 +8,21 @@ import {
   extensionPath,
 } from '../client.js'
 import { CliError } from '../errors.js'
-import { booleanValue, positiveInteger, required, textValue } from '../options.js'
+import {
+  containsRedactedValue,
+  isJsonObject,
+  mergeJsonObjects,
+  parseJsonValue,
+  readJsonObject,
+  setJsonPointer,
+} from '../json-input.js'
+import {
+  booleanValue,
+  positiveInteger,
+  required,
+  requireConfirmation,
+  textValue,
+} from '../options.js'
 import { printJson, printTheme, printThemeList } from '../output.js'
 import { printOrExportJson } from '../structured-output.js'
 import type {
@@ -20,10 +34,13 @@ import type {
 import type { StructuredOutputOptions } from '../structured-output.js'
 
 interface ThemeOptions extends ConnectionOptions, StructuredOutputOptions {
+  file?: unknown
   keyword?: unknown
   page?: string
+  replace?: boolean
   size?: string
   uninstalled?: boolean | string
+  yes?: boolean
 }
 
 function addConnectionOptions(command: ReturnType<CAC['command']>) {
@@ -83,6 +100,11 @@ async function fetchThemeConfig(
   return response.data ?? {}
 }
 
+function requireThemeConfigObject(value: unknown): Record<string, unknown> {
+  if (!isJsonObject(value)) throw new CliError('主题配置不是 JSON 对象，无法修改。')
+  return value
+}
+
 export function registerThemeCommands(cli: CAC): void {
   addConnectionOptions(cli.command('list', '发现已安装主题'))
     .option('--page <number>', '页码', { default: 1 })
@@ -125,6 +147,51 @@ export function registerThemeCommands(cli: CAC): void {
       else printTheme(theme, theme.metadata.name)
     })
 
+  addConnectionOptions(cli.command('activate <name>', '激活主题'))
+    .option('--json', '输出 JSON')
+    .action(async (name: string, options: ThemeOptions) => {
+      const { http } = await createHaloClient(options)
+      await http.put(consoleThemePath(name, 'activation'))
+      const theme = await getTheme(http, name)
+      if (options.json) printJson(theme)
+      else process.stdout.write(`主题 ${name} 已激活。\n`)
+    })
+
+  addConnectionOptions(cli.command('reload <name>', '重载主题'))
+    .option('--json', '输出 JSON')
+    .action(async (name: string, options: ThemeOptions) => {
+      const { http } = await createHaloClient(options)
+      await http.put(consoleThemePath(name, 'reload'))
+      const theme = await getTheme(http, name)
+      if (options.json) printJson(theme)
+      else process.stdout.write(`主题 ${name} 已重载。\n`)
+    })
+
+  addConnectionOptions(cli.command('invalidate-cache <name>', '清除主题模板缓存'))
+    .option('--json', '输出 JSON')
+    .action(async (name: string, options: ThemeOptions) => {
+      const { http } = await createHaloClient(options)
+      await http.put(consoleThemePath(name, 'invalidate-cache'))
+      if (options.json) printJson({ invalidated: true, name })
+      else process.stdout.write(`主题 ${name} 的模板缓存已清除。\n`)
+    })
+
+  addConnectionOptions(cli.command('templates <name>', '列出主题自定义页面模板'))
+    .option('--json', '输出 JSON')
+    .action(async (name: string, options: ThemeOptions) => {
+      const { http } = await createHaloClient(options)
+      const theme = await getTheme(http, name)
+      const templates = theme.spec.customTemplates ?? {}
+      if (options.json) printJson(templates)
+      else {
+        for (const [type, items] of Object.entries(templates)) {
+          for (const template of items) {
+            process.stdout.write(`${type.padEnd(10)} ${template.file.padEnd(24)} ${template.name}\n`)
+          }
+        }
+      }
+    })
+
   addConnectionOptions(
     addStructuredOptions(cli.command('setting <name>', '查看主题配置 Schema')),
   ).action(async (name: string, options: ThemeOptions) => {
@@ -151,6 +218,63 @@ export function registerThemeCommands(cli: CAC): void {
       const output = textValue(options.output, '--output')
       if (!output) throw new CliError('config-export 必须指定 --output <file>。')
       const { http } = await createHaloClient(options)
+      await printOrExportJson(await fetchThemeConfig(http, name), options, '主题配置')
+    })
+
+  addConnectionOptions(
+    cli.command('config-set <name> <pointer> <value>', '按 JSON Pointer 修改一个主题配置字段'),
+  )
+    .option('--json', '输出 JSON')
+    .action(async (name: string, pointer: string, value: string, options: ThemeOptions) => {
+      const { http } = await createHaloClient(options)
+      const current = requireThemeConfigObject(await fetchThemeConfig(http, name))
+      const updated = setJsonPointer(current, pointer, parseJsonValue(value))
+      const response = await http.put<Record<string, unknown>>(
+        consoleThemePath(name, 'json-config'),
+        updated,
+      )
+      await printOrExportJson(
+        isJsonObject(response.data) ? response.data : updated,
+        options,
+        '主题配置',
+      )
+    })
+
+  addConnectionOptions(cli.command('config-import <name>', '从 JSON 文件合并或替换主题配置'))
+    .option('--file <path>', '配置 JSON 文件路径')
+    .option('--replace', '替换完整配置；默认递归合并')
+    .option('--yes', '确认完整替换')
+    .option('--json', '输出 JSON')
+    .action(async (name: string, options: ThemeOptions) => {
+      const file = required(textValue(options.file, '--file'), '配置文件（--file）')
+      const imported = await readJsonObject(file, '主题配置文件')
+      if (containsRedactedValue(imported)) {
+        throw new CliError('配置文件包含 [REDACTED]，拒绝写入以免覆盖真实凭据。')
+      }
+      const { http } = await createHaloClient(options)
+      const current = requireThemeConfigObject(await fetchThemeConfig(http, name))
+      if (options.replace) {
+        requireConfirmation(options.yes, `halo-cli theme config-import ${name} --replace`)
+      }
+      const updated = options.replace ? imported : mergeJsonObjects(current, imported)
+      const response = await http.put<Record<string, unknown>>(
+        consoleThemePath(name, 'json-config'),
+        updated,
+      )
+      await printOrExportJson(
+        isJsonObject(response.data) ? response.data : updated,
+        options,
+        '主题配置',
+      )
+    })
+
+  addConnectionOptions(cli.command('config-reset <name>', '将主题配置恢复为 Schema 默认值'))
+    .option('--yes', '确认重置')
+    .option('--json', '输出 JSON')
+    .action(async (name: string, options: ThemeOptions) => {
+      requireConfirmation(options.yes, `halo-cli theme config-reset ${name}`)
+      const { http } = await createHaloClient(options)
+      await http.put(consoleThemePath(name, 'reset-config'))
       await printOrExportJson(await fetchThemeConfig(http, name), options, '主题配置')
     })
 }

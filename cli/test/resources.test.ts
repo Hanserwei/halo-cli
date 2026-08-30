@@ -132,6 +132,7 @@ describe('Halo resources', () => {
 
   it('builds a draft post with rendered Markdown', async () => {
     const request = await buildCreatePostRequest({
+      annotations: '{"ai":"true","copyrightType":"original"}',
       categories: 'category-a,category-b',
       content: '# Hello',
       publish: true,
@@ -148,6 +149,7 @@ describe('Halo resources', () => {
     })
     expect(request.content).toMatchObject({ raw: '# Hello', rawType: 'markdown' })
     expect(request.content.content).toContain('<h1>Hello</h1>')
+    expect(request.post.metadata.annotations).toEqual({ ai: 'true', copyrightType: 'original' })
   })
 
   it('preserves leading whitespace in post and page content', async () => {
@@ -164,10 +166,14 @@ describe('Halo resources', () => {
     const request = await buildUpdatePostRequest(
       currentPost,
       { content: '<p>Old</p>', raw: 'Old', rawType: 'markdown' },
-      { categories: '', content: 'New', title: 'New title' },
+      { annotations: '{"ai":"false"}', categories: '', content: 'New', title: 'New title' },
     )
 
-    expect(request.post.metadata).toEqual({ name: 'post-one', version: 3 })
+    expect(request.post.metadata).toEqual({
+      annotations: { ai: 'false' },
+      name: 'post-one',
+      version: 3,
+    })
     expect(request.post.spec.categories).toEqual([])
     expect(request.post.spec.tags).toEqual(['tag-old'])
     expect(request.post.spec.title).toBe('New title')

@@ -6,6 +6,7 @@ import MarkdownIt from 'markdown-it'
 
 import { consolePostPath, createHaloClient, resourcePath, waitForDeletion } from '../client.js'
 import { CliError } from '../errors.js'
+import { parseStringRecord } from '../json-input.js'
 import {
   booleanValue,
   csv,
@@ -15,6 +16,7 @@ import {
   requiredContent,
   requireConfirmation,
   slugify,
+  textValue,
 } from '../options.js'
 import { printJson, printPost, printPostList } from '../output.js'
 import type {
@@ -32,6 +34,7 @@ const markdown = new MarkdownIt({ breaks: true, html: true, linkify: true })
 
 interface PostOptions extends ConnectionOptions, OutputOptions {
   allowComment?: boolean | string
+  annotations?: unknown
   categories?: string
   content?: string
   cover?: string
@@ -83,6 +86,11 @@ function visibility(value: string | undefined, fallback: Post['spec']['visible']
   return normalized as Post['spec']['visible']
 }
 
+function postAnnotations(value: unknown): Record<string, string> | undefined {
+  const text = textValue(value, '--annotations')
+  return text === undefined ? undefined : parseStringRecord(text, '--annotations')
+}
+
 export async function buildCreatePostRequest(options: PostOptions): Promise<PostRequest> {
   const title = required(options.title, '文章标题（--title）')
   const raw = requiredContent(await resolveRaw(options), '文章正文（--content 或 --file）')
@@ -93,7 +101,12 @@ export async function buildCreatePostRequest(options: PostOptions): Promise<Post
     post: {
       apiVersion: 'content.halo.run/v1alpha1',
       kind: 'Post',
-      metadata: { name: randomUUID() },
+      metadata: {
+        ...(options.annotations === undefined
+          ? {}
+          : { annotations: postAnnotations(options.annotations) }),
+        name: randomUUID(),
+      },
       spec: {
         allowComment: booleanValue(options.allowComment, '--allow-comment') ?? true,
         categories: csv(options.categories),
@@ -127,6 +140,16 @@ export async function buildUpdatePostRequest(
   return {
     post: {
       ...currentPost,
+      metadata:
+        options.annotations === undefined
+          ? currentPost.metadata
+          : {
+              ...currentPost.metadata,
+              annotations: {
+                ...currentPost.metadata.annotations,
+                ...postAnnotations(options.annotations),
+              },
+            },
       spec: {
         ...currentPost.spec,
         allowComment:
@@ -182,6 +205,7 @@ function addPostMutationOptions(command: ReturnType<CAC['command']>) {
     .option('--visible <visibility>', 'PUBLIC、INTERNAL 或 PRIVATE')
     .option('--pinned <boolean>', '是否置顶，true 或 false')
     .option('--allow-comment <boolean>', '是否允许评论，true 或 false')
+    .option('--annotations <json>', '合并 metadata.annotations JSON 对象（支持 Hao 文章扩展字段）')
     .option('--priority <number>', '排序优先级')
 }
 

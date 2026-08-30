@@ -17,7 +17,7 @@ export async function createHaloClient(options: ConnectionOptions): Promise<Halo
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${profile.token}`,
-      'User-Agent': 'halo-cli/0.4.0',
+      'User-Agent': 'halo-cli/0.5.0',
     },
     paramsSerializer: { indexes: null },
     maxRedirects: 0,
@@ -68,6 +68,20 @@ export function extensionPath(
   name?: string,
 ): string {
   const base = `/apis/${group}/v1alpha1/${resource}`
+  return name ? `${base}/${encodeURIComponent(name)}` : base
+}
+
+export function customExtensionPath(
+  group: string,
+  version: string,
+  resource: string,
+  name?: string,
+): string {
+  const segment = /^[A-Za-z0-9][A-Za-z0-9.-]*$/
+  if (![group, version, resource].every((value) => segment.test(value))) {
+    throw new CliError('Extension 引用无效，应为 group/version/resource。')
+  }
+  const base = `/apis/${group}/${version}/${resource}`
   return name ? `${base}/${encodeURIComponent(name)}` : base
 }
 

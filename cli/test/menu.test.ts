@@ -62,17 +62,21 @@ describe('menu resources', () => {
   it('builds custom and referenced menu items using the 2.26 hierarchy model', () => {
     expect(
       buildMenuItem('primary', 'root', 2, {
+        annotations: '{"icon":"hao-icon-home","isVertical":"0"}',
         displayName: ' Docs ',
         href: ' /docs ',
         target: 'blank',
-      }).spec,
-    ).toEqual({
+      }),
+    ).toMatchObject({
+      metadata: { annotations: { icon: 'hao-icon-home', isVertical: '0' } },
+      spec: {
       displayName: 'Docs',
       href: '/docs',
       menuName: 'primary',
       parent: 'root',
       priority: 2,
       target: '_blank',
+      },
     })
 
     expect(

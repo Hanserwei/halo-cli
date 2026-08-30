@@ -9,6 +9,7 @@ import {
   waitForDeletion,
 } from '../client.js'
 import { CliError } from '../errors.js'
+import { parseStringRecord } from '../json-input.js'
 import { positiveInteger, required, requireConfirmation, textValue } from '../options.js'
 import {
   printJson,
@@ -33,6 +34,7 @@ import type {
 type MenuRefKind = 'Category' | 'Post' | 'SinglePage' | 'Tag'
 
 interface MenuOptions extends ConnectionOptions, OutputOptions {
+  annotations?: unknown
   before?: unknown
   displayName?: unknown
   href?: unknown
@@ -61,6 +63,12 @@ function addMenuItemSourceOptions(command: ReturnType<CAC['command']>) {
     .option('--ref-kind <kind>', '引用类型：post、page、category、tag 或 custom')
     .option('--ref-name <name>', '引用资源 metadata.name')
     .option('--target <target>', '链接目标：_self、_blank、_parent 或 _top')
+    .option('--annotations <json>', '合并 metadata.annotations JSON 对象（支持 Hao 菜单扩展字段）')
+}
+
+function menuAnnotations(value: unknown): Record<string, string> | undefined {
+  const text = textValue(value, '--annotations')
+  return text === undefined ? undefined : parseStringRecord(text, '--annotations')
 }
 
 export function normalizeMenuItemTarget(
@@ -170,7 +178,13 @@ export function buildMenuItem(
   return {
     apiVersion: 'v1alpha1',
     kind: 'MenuItem',
-    metadata: { generateName: 'menu-item-', name: '' },
+    metadata: {
+      ...(options.annotations === undefined
+        ? {}
+        : { annotations: menuAnnotations(options.annotations) }),
+      generateName: 'menu-item-',
+      name: '',
+    },
     spec: {
       ...source,
       menuName,
@@ -214,6 +228,16 @@ export function buildUpdatedMenuItem(current: MenuItem, options: MenuOptions): M
   }
   return {
     ...current,
+    metadata:
+      options.annotations === undefined
+        ? current.metadata
+        : {
+            ...current.metadata,
+            annotations: {
+              ...current.metadata.annotations,
+              ...menuAnnotations(options.annotations),
+            },
+          },
     spec: {
       ...current.spec,
       ...source,

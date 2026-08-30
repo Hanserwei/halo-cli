@@ -6,8 +6,22 @@ import {
   extensionPath,
 } from '../client.js'
 import { CliError } from '../errors.js'
-import { booleanValue, positiveInteger, required, textValue } from '../options.js'
-import { printPlugin, printPluginList } from '../output.js'
+import {
+  containsRedactedValue,
+  isJsonObject,
+  mergeJsonObjects,
+  parseJsonValue,
+  readJsonObject,
+  setJsonPointer,
+} from '../json-input.js'
+import {
+  booleanValue,
+  positiveInteger,
+  required,
+  requireConfirmation,
+  textValue,
+} from '../options.js'
+import { printJson, printPlugin, printPluginList } from '../output.js'
 import { printOrExportJson } from '../structured-output.js'
 import type {
   ConnectionOptions,
@@ -18,10 +32,14 @@ import type {
 import type { StructuredOutputOptions } from '../structured-output.js'
 
 interface PluginOptions extends ConnectionOptions, StructuredOutputOptions {
+  async?: boolean | string
   enabled?: boolean | string
+  file?: unknown
   keyword?: unknown
   page?: string
+  replace?: boolean
   size?: string
+  yes?: boolean
 }
 
 function addConnectionOptions(command: ReturnType<CAC['command']>) {
@@ -70,6 +88,11 @@ async function fetchPluginConfig(
   return response.data ?? {}
 }
 
+function requirePluginConfigObject(value: unknown): Record<string, unknown> {
+  if (!isJsonObject(value)) throw new CliError('插件配置不是 JSON 对象，无法修改。')
+  return value
+}
+
 function printPluginConfigUsage(
   value: unknown,
   options: PluginOptions,
@@ -104,6 +127,34 @@ export function registerPluginCommands(cli: CAC): void {
       printPlugin(await getPlugin(http, name), options.json)
     })
 
+  for (const action of ['enable', 'disable'] as const) {
+    addConnectionOptions(
+      cli.command(`${action} <name>`, action === 'enable' ? '启用插件' : '停用插件'),
+    )
+      .option('--async <boolean>', '是否异步切换状态，true 或 false（默认 false）')
+      .option('--json', '输出 JSON')
+      .action(async (name: string, options: PluginOptions) => {
+        const { http } = await createHaloClient(options)
+        await http.put(consolePluginPath(name, 'plugin-state'), {
+          async: booleanValue(options.async, '--async') ?? false,
+          enable: action === 'enable',
+        })
+        const plugin = await getPlugin(http, name)
+        if (options.json) printJson(plugin)
+        else process.stdout.write(`插件 ${name} 已${action === 'enable' ? '启用' : '停用'}。\n`)
+      })
+  }
+
+  addConnectionOptions(cli.command('reload <name>', '重载插件'))
+    .option('--json', '输出 JSON')
+    .action(async (name: string, options: PluginOptions) => {
+      const { http } = await createHaloClient(options)
+      await http.put(consolePluginPath(name, 'reload'))
+      const plugin = await getPlugin(http, name)
+      if (options.json) printJson(plugin)
+      else process.stdout.write(`插件 ${name} 已重载。\n`)
+    })
+
   addConnectionOptions(
     addStructuredOptions(cli.command('setting <name>', '查看插件配置 Schema')),
   ).action(async (name: string, options: PluginOptions) => {
@@ -130,6 +181,55 @@ export function registerPluginCommands(cli: CAC): void {
       const output = textValue(options.output, '--output')
       if (!output) throw new CliError('config-export 必须指定 --output <file>。')
       const { http } = await createHaloClient(options)
+      await printPluginConfigUsage(await fetchPluginConfig(http, name), options)
+    })
+
+  addConnectionOptions(
+    cli.command('config-set <name> <pointer> <value>', '按 JSON Pointer 修改一个插件配置字段'),
+  )
+    .option('--json', '输出 JSON')
+    .action(async (name: string, pointer: string, value: string, options: PluginOptions) => {
+      const { http } = await createHaloClient(options)
+      const current = requirePluginConfigObject(await fetchPluginConfig(http, name))
+      const updated = setJsonPointer(current, pointer, parseJsonValue(value))
+      const response = await http.put<Record<string, unknown>>(
+        consolePluginPath(name, 'json-config'),
+        updated,
+      )
+      await printPluginConfigUsage(isJsonObject(response.data) ? response.data : updated, options)
+    })
+
+  addConnectionOptions(cli.command('config-import <name>', '从 JSON 文件合并或替换插件配置'))
+    .option('--file <path>', '配置 JSON 文件路径')
+    .option('--replace', '替换完整配置；默认递归合并')
+    .option('--yes', '确认完整替换')
+    .option('--json', '输出 JSON')
+    .action(async (name: string, options: PluginOptions) => {
+      const file = required(textValue(options.file, '--file'), '配置文件（--file）')
+      const imported = await readJsonObject(file, '插件配置文件')
+      if (containsRedactedValue(imported)) {
+        throw new CliError('配置文件包含 [REDACTED]，拒绝写入以免覆盖真实凭据。')
+      }
+      const { http } = await createHaloClient(options)
+      const current = requirePluginConfigObject(await fetchPluginConfig(http, name))
+      if (options.replace) {
+        requireConfirmation(options.yes, `halo-cli plugin config-import ${name} --replace`)
+      }
+      const updated = options.replace ? imported : mergeJsonObjects(current, imported)
+      const response = await http.put<Record<string, unknown>>(
+        consolePluginPath(name, 'json-config'),
+        updated,
+      )
+      await printPluginConfigUsage(isJsonObject(response.data) ? response.data : updated, options)
+    })
+
+  addConnectionOptions(cli.command('config-reset <name>', '将插件配置恢复为 Schema 默认值'))
+    .option('--yes', '确认重置')
+    .option('--json', '输出 JSON')
+    .action(async (name: string, options: PluginOptions) => {
+      requireConfirmation(options.yes, `halo-cli plugin config-reset ${name}`)
+      const { http } = await createHaloClient(options)
+      await http.put(consolePluginPath(name, 'reset-config'))
       await printPluginConfigUsage(await fetchPluginConfig(http, name), options)
     })
 }

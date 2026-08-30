@@ -2,10 +2,11 @@ import Table from 'cli-table3'
 
 import type {
   Attachment,
-  AttachmentGroup,
-  Category,
-  Comment,
-  ContentWrapper,
+    AttachmentGroup,
+    Category,
+    Comment,
+    ContentWrapper,
+    HaloExtension,
   ListedComment,
   ListedPost,
   ListedReply,
@@ -454,4 +455,45 @@ export function printResource(value: Category | Tag, json = false): void {
     ['Posts', value.status?.postCount ?? 0],
     ['Permalink', value.status?.permalink ?? '-'],
   ])
+}
+
+export function printExtensionList(page: Page<HaloExtension>, json = false): void {
+  if (json) {
+    printJson(page)
+    return
+  }
+  printTable(
+    ['NAME', 'KIND', 'DISPLAY NAME', 'CREATED'],
+    page.items.map((item) => [
+      item.metadata.name,
+      item.kind,
+      extensionDisplayName(item),
+      timestamp(item.metadata.creationTimestamp),
+    ]),
+  )
+  process.stdout.write(`第 ${page.page || 1}/${page.totalPages || 1} 页，共 ${page.total} 个资源\n`)
+}
+
+export function printExtension(value: HaloExtension, json = false): void {
+  if (json) {
+    printJson(value)
+    return
+  }
+  printTable(['FIELD', 'VALUE'], [
+    ['Name', value.metadata.name],
+    ['Kind', value.kind],
+    ['API version', value.apiVersion],
+    ['Display name', extensionDisplayName(value)],
+    ['Created', timestamp(value.metadata.creationTimestamp)],
+    ['Deleting', value.metadata.deletionTimestamp ? 'yes' : 'no'],
+  ])
+}
+
+function extensionDisplayName(value: HaloExtension): string {
+  const spec = value.spec
+  for (const key of ['displayName', 'title', 'name']) {
+    const candidate = spec?.[key]
+    if (typeof candidate === 'string' && candidate.trim()) return candidate
+  }
+  return '-'
 }

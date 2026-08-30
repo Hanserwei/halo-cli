@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   createHaloClient: vi.fn(),
   get: vi.fn(),
+  put: vi.fn(),
 }))
 
 vi.mock('../src/client.js', async (importOriginal) => ({
@@ -55,11 +56,12 @@ afterEach(() => {
   vi.restoreAllMocks()
   mocks.createHaloClient.mockReset()
   mocks.get.mockReset()
+  mocks.put.mockReset()
 })
 
 function connect() {
   mocks.createHaloClient.mockResolvedValue({
-    http: { get: mocks.get },
+    http: { get: mocks.get, put: mocks.put },
     name: 'test',
     url: 'https://halo.example',
   })
@@ -221,5 +223,45 @@ describe('plugin and theme configuration requests', () => {
       main(['node', 'halo-cli', 'plugin', 'setting', 'plugin-example', '--json']),
     ).rejects.toThrow('未声明设置 Schema')
     expect(mocks.get).toHaveBeenCalledTimes(1)
+  })
+
+  it('updates one plugin config field without replacing sibling values', async () => {
+    connect()
+    mocks.get
+      .mockResolvedValueOnce({ data: plugin })
+      .mockResolvedValueOnce({ data: { feature: { enabled: false, mode: 'safe' } } })
+    mocks.put.mockResolvedValue({ data: 'Plugin config updated successfully' })
+    const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    await main([
+      'node',
+      'halo-cli',
+      'plugin',
+      'config-set',
+      'plugin-example',
+      '/feature/enabled',
+      'true',
+      '--json',
+    ])
+
+    expect(mocks.put).toHaveBeenCalledWith(
+      '/apis/api.console.halo.run/v1alpha1/plugins/plugin-example/json-config',
+      { feature: { enabled: true, mode: 'safe' } },
+    )
+    expect(output).toHaveBeenCalledWith(expect.stringContaining('"enabled": true'))
+  })
+
+  it('activates a theme through the Console endpoint', async () => {
+    connect()
+    mocks.put.mockResolvedValue({ data: undefined })
+    mocks.get.mockResolvedValue({ data: theme })
+    const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+    await main(['node', 'halo-cli', 'theme', 'activate', 'theme-example', '--json'])
+
+    expect(mocks.put).toHaveBeenCalledWith(
+      '/apis/api.console.halo.run/v1alpha1/themes/theme-example/activation',
+    )
+    expect(output).toHaveBeenCalledWith(expect.stringContaining('theme-example'))
   })
 })
