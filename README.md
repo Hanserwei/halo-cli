@@ -7,7 +7,7 @@
 
 Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 Halo 内容。插件在 Console 中提供 CLI 下载入口，CLI 通过 Halo 官方 REST API 和个人令牌访问一个或多个 Halo 站点。
 
-当前版本为 `0.4.0`，已实现文章、页面、分类、标签、评论、附件、菜单以及插件/主题配置只读管理，兼容 Halo `2.26+`。
+当前版本为 `0.5.0`，已实现 Halo 核心内容管理、插件/主题生命周期与配置写入、通用 Extension CRUD，以及 Hao 1.7.3 和常用插件适配，兼容 Halo `2.26+`。
 
 > [!NOTE]
 > 本项目是社区插件，与 Halo 官方发布的 [`@halo-dev/cli`](https://github.com/halo-dev/cli) 相互独立。
@@ -21,7 +21,9 @@ Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 H
 - 评论审核：支持评论与回复查询、批准、取消批准、回复和异步删除
 - 附件管理：支持本地上传、URL 转存、查询、更新、下载和异步删除
 - 菜单管理：支持主菜单、菜单复制、内容引用、任意层级和拖拽等价排序
-- 插件和主题配置：发现资源、读取配置 Schema、读取当前 JSON 配置并安全导出
+- 插件和主题配置：生命周期、配置 Schema、定点修改、合并导入、重置和安全导出
+- Hao 与插件内容：依赖体检、页面模板、注解字段，以及友链、瞬间、图库、追番和装备模型
+- 扩展 API：任意 Extension CRUD、搜索索引、同站 JSON API 和 multipart 上传
 - 内容属性：支持多分类、多标签、公开/内部/私密可见性、置顶和评论开关
 - 多级分类：通过父分类 `metadata.name` 创建任意层级结构
 - 自动化友好：所有查询及写操作均可输出 JSON
@@ -53,7 +55,10 @@ Terminal ── halo-cli ──┴── Bearer PAT ──> Halo Core / Console 
 | 评论 | 评论与回复查询、审核、回复和删除 | 已完成 |
 | 附件 | 查询、本地上传、URL 转存、更新、下载和删除 | 已完成 |
 | 菜单 | 菜单组、主菜单、复制、菜单项树、内容引用、移动和删除 | 已完成 |
-| 插件和主题 | 发现、详情、Setting Schema、当前配置和 JSON 导出 | 已完成（只读） |
+| 插件和主题 | 发现、启停/激活、重载、Setting Schema、配置读取、定点修改、合并导入和重置 | 已完成 |
+| Extension | 已知别名及任意 `group/version/resource` 的列表、详情、创建、合并更新、JSON Pointer、JSON Patch 和删除 | 已完成 |
+| Hao 1.7.3 | 依赖体检、7 个页面模板、5 类注解字段及常用插件模型映射 | 已完成 |
+| 搜索和插件 API | Halo 搜索索引、同站 JSON API、multipart 文件上传和敏感响应脱敏 | 已完成 |
 
 ## 安装
 
@@ -400,9 +405,9 @@ halo-cli menu delete <menu-name> --yes
 > [!NOTE]
 > Halo 2.26 已弃用 `Menu.spec.menuItems` 和 `MenuItem.spec.children` 作为层级来源。CLI 只通过 `MenuItem.spec.menuName`、`parent`、`priority` 和 Console position API 管理树结构。
 
-### 插件与主题配置（只读）
+### 插件与主题生命周期和配置
 
-0.4.0 提供插件和主题的发现、配置 Schema 查看、当前配置读取与 JSON 导出。配置命令不会修改插件或主题：
+0.5.0 在原有发现、Schema、配置读取与导出的基础上，增加了生命周期和配置写入：
 
 ```bash
 halo-cli plugin list
@@ -410,6 +415,9 @@ halo-cli plugin get <plugin-name>
 halo-cli plugin setting <plugin-name>
 halo-cli plugin config <plugin-name>
 halo-cli plugin config-export <plugin-name> --output ./plugin-config.json
+halo-cli plugin enable <plugin-name>
+halo-cli plugin disable <plugin-name>
+halo-cli plugin reload <plugin-name>
 
 halo-cli theme list
 halo-cli theme current
@@ -417,6 +425,10 @@ halo-cli theme get <theme-name>
 halo-cli theme setting <theme-name>
 halo-cli theme config <theme-name>
 halo-cli theme config-export <theme-name> --output ./theme-config.json
+halo-cli theme activate <theme-name>
+halo-cli theme reload <theme-name>
+halo-cli theme invalidate-cache <theme-name>
+halo-cli theme templates <theme-name>
 ```
 
 `plugin list` 和 `theme list` 显示 `metadata.name`、显示名称、版本、启用/激活状态，以及是否声明 Setting 和 ConfigMap。`setting` 输出 Halo Console 用于渲染 FormKit 表单的完整 Setting Schema；`config` 输出当前按配置分组的 JSON 数据。
@@ -431,7 +443,198 @@ halo-cli plugin config-export <plugin-name> \
 
 敏感配置禁止直接打印到终端；导出文件默认使用 `0600` 权限，已存在的目标文件默认拒绝覆盖，替换时必须使用 `--force`。`config-export` 需要显式指定 `--output`。
 
-该版本只处理 Halo 标准 Setting/ConfigMap 配置。插件或主题自定义的 OAuth 授权、测试连接、文件上传、远程选项和业务接口不属于本期范围。
+使用 RFC 6901 JSON Pointer 只修改一个字段。值会优先按 JSON 解析，因此 `true`、`42`、`null`、对象和数组会保留类型；普通文本按字符串处理：
+
+```bash
+# Hao：开启首页第一屏
+halo-cli theme config-set theme-hao \
+  /top/above/enable_above true
+
+# 瞬间插件：示例路径以当前插件 Setting Schema 为准
+halo-cli plugin setting PluginMoments --json
+halo-cli plugin config-set PluginMoments \
+  /basic/enable_comment true
+```
+
+配置文件默认递归合并，未出现在文件中的字段保持不变。完整替换必须同时提供 `--replace --yes`：
+
+```bash
+halo-cli theme config-import theme-hao --file ./hao-partial.json
+halo-cli plugin config-import PluginLinks --file ./links-partial.json
+
+halo-cli theme config-import theme-hao \
+  --file ./hao-complete.json \
+  --replace --yes
+```
+
+CLI 拒绝导入包含字面量 `[REDACTED]` 的文件，避免把普通脱敏导出误写回服务器。恢复 Schema 默认配置同样要求明确确认：
+
+```bash
+halo-cli plugin config-reset PluginMoments --yes
+halo-cli theme config-reset theme-hao --yes
+```
+
+### Hao 1.7.3 适配
+
+`hao doctor` 会交叉检查当前主题、Hao 版本、常用插件的安装和启用状态，并返回页面模板与注解目录：
+
+```bash
+halo-cli hao doctor
+halo-cli hao doctor --json
+halo-cli hao templates
+halo-cli hao annotations
+```
+
+当前适配清单包括：
+
+| Hao 功能 | 插件 `metadata.name` | CLI 入口 |
+| --- | --- | --- |
+| 默认评论 | `PluginCommentWidget` | `comment`、`plugin config-*` |
+| 搜索组件 | `PluginSearchWidget` | `search query` |
+| 友情链接 | `PluginLinks` | `extension link-group/link`、`api request` |
+| 瞬间 | `PluginMoments` | `extension moment` |
+| Bilibili 追番 | `plugin-bilibili-bangumi` | `plugin config-*`、`extension bangumi` |
+| 图库 | `PluginPhotos` | `extension photo-group/photo`、`api upload` |
+| KaTeX | `plugin-katex` | `post`、`page`、`plugin config-*` |
+| 装备 | `equipment` | `extension equipment-group/equipment` |
+| Markdown / HTML 内容块 | `hybrid-edit-block` | `post`、`page`（插件本身无业务模型） |
+| 爱发电 | `plugin-afdian` | `plugin config-*`、`api request` |
+
+Hao 源码额外探测 `PluginFeed`（RSS）、`PluginPrismJS`、`plugin-platforms-sync` 和 `link-submit`。这些是可选兼容项，不安装不会让 `hao doctor` 失败；安装后仍可通过通用 `plugin config-*`、`extension group/version/resource` 和 `api request` 管理。Twikoo、Artalk、Waline 是外部评论后端，其连接信息通过 `theme config-set theme-hao ...` 管理。
+
+Hao 注册的 7 个页面模板可直接传给现有页面命令：
+
+```bash
+halo-cli page create \
+  --title "关于" \
+  --slug about \
+  --template about.html \
+  --content "# 关于" \
+  --publish
+```
+
+可用模板文件为 `page_links.html`、`about.html`、`music.html`、`comments.html`、`todolist.html`、`album.html` 和 `new_comment.html`。
+
+文章和菜单项支持直接合并 Hao 注解：
+
+```bash
+halo-cli post update <post-name> \
+  --annotations '{"ai":"true","copyrightEnable":"true","copyrightType":"original"}'
+
+halo-cli menu item-update <menu-item-name> \
+  --annotations '{"icon":"haofont hao-icon-home","isVertical":"0"}'
+```
+
+### 插件 Extension 资源
+
+`extension` 对 Halo 的 Extension API 提供统一 CRUD。内置别名覆盖 Hao 常用业务模型：
+
+```bash
+halo-cli extension presets
+halo-cli extension list link-group
+halo-cli extension list link
+halo-cli extension list moment
+halo-cli extension list photo-group
+halo-cli extension list photo
+halo-cli extension list bangumi
+halo-cli extension list equipment-group
+halo-cli extension list equipment
+```
+
+创建带 Hao 美化字段的友链分组和链接：
+
+```bash
+group_name=$(halo-cli extension create link-group \
+  --spec '{"displayName":"技术伙伴","priority":10}' \
+  --annotations '{"displayStyle":"beautify","description":"长期关注的技术站点"}' \
+  --json | jq -r '.metadata.name')
+
+halo-cli extension create link \
+  --spec "$(jq -nc --arg group "$group_name" '{
+    displayName: "Halo",
+    url: "https://www.halo.run",
+    logo: "https://www.halo.run/logo",
+    groupName: $group,
+    priority: 10
+  }')" \
+  --annotations '{"label":"推荐","labelColor":"#425AEF"}'
+```
+
+创建瞬间、图库分组和装备分组：
+
+```bash
+halo-cli extension create moment --spec '{
+  "content":{"raw":"今天开始使用 Halo CLI","html":"<p>今天开始使用 Halo CLI</p>","medium":[]},
+  "owner":"<user-metadata-name>",
+  "visible":"PUBLIC",
+  "tags":["Halo"],
+  "approved":true
+}'
+
+halo-cli extension create photo-group \
+  --spec '{"displayName":"旅行","priority":10}' \
+  --annotations '{"cover":"/upload/cover.webp","background":"/upload/banner.webp","description":"旅途记录"}'
+
+halo-cli extension create equipment-group \
+  --spec '{"displayName":"开发设备","description":"日常生产力工具","priority":10}'
+```
+
+局部更新支持合并 spec/annotations、JSON Pointer 和 JSON Patch：
+
+```bash
+halo-cli extension update link <link-name> \
+  --spec '{"description":"Halo 官方网站"}' \
+  --annotations '{"label":"官方"}'
+
+halo-cli extension set link <link-name> \
+  /metadata/annotations/labelColor '"#2563EB"'
+
+halo-cli extension patch moment <moment-name> \
+  --patch '[{"op":"add","path":"/spec/tags","value":["Halo","CLI"]}]'
+
+halo-cli extension delete photo <photo-name> --yes
+```
+
+不在预设中的插件模型可以直接使用 `group/version/resource`。创建时额外提供 `--kind`：
+
+```bash
+halo-cli extension list example.plugin.halo.run/v1alpha1/widgets --json
+halo-cli extension create example.plugin.halo.run/v1alpha1/widgets \
+  --kind Widget \
+  --spec '{"displayName":"Example"}'
+```
+
+### 搜索与插件自定义 API
+
+搜索命令直接调用 Halo 搜索索引，搜索组件无需额外抓取页面：
+
+```bash
+halo-cli search query "Halo CLI"
+halo-cli search query "图库" \
+  --types post,singlePage \
+  --limit 10 \
+  --json
+```
+
+插件没有统一业务模型的特殊能力可通过 `api` 调用。路径只能指向当前 Profile 的 `/apis/` 或 `/api/`，CLI 不接受外部 URL，也不会跟随重定向：
+
+```bash
+# 爱发电赞助列表
+halo-cli api request GET \
+  /apis/api.plugin.halo.run/v1alpha1/plugins/plugin-afdian/afdian/getSponsorList
+
+# 刷新指定友链的 RSS
+halo-cli api request POST \
+  /apis/console.api.link.halo.run/v1alpha1/links/<link-name>/rss/refresh
+
+# 图库插件直接上传图片
+halo-cli api upload \
+  /apis/console.api.photo.halo.run/v1alpha1/photos/upload \
+  --file ./photo.jpg \
+  --form '{"group":"<photo-group-name>"}'
+```
+
+`api request` 支持 GET、POST、PUT、PATCH 和 DELETE，使用 `--query <json>`、`--body <json>` 或 `--file <json-file>` 传参。DELETE 必须提供 `--yes`。API 响应默认递归脱敏；原始敏感响应仍只能配合 `--include-secrets --output <file>` 导出。
 
 ## JSON 与自动化
 
@@ -539,7 +742,8 @@ src/main/resources/   插件清单与 RBAC 角色模板
 - `0.2.x`：页面、评论和附件管理
 - `0.3.x`：菜单组、主菜单和树形菜单项管理
 - `0.4.x`：插件和主题发现、Setting Schema、当前配置读取和 JSON 导出（只读）
-- 后续：配置导入与修改、批量操作、导入导出、Shell 补全、附件分组/策略管理和更多内容类型
+- `0.5.x`：Hao 1.7.3 与常用插件适配、Extension CRUD、配置写入、搜索和同站插件 API
+- 后续：批量操作、Shell 补全、应用安装/升级和更多领域化快捷命令
 
 欢迎通过 [Issues](https://github.com/hanserwei/halo-cli/issues) 提交问题或建议。
 

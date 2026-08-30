@@ -1,6 +1,6 @@
 # @hanserwei/halo-cli
 
-Halo `2.26+` 的命令行内容管理工具，当前版本为 `0.4.0`。运行时需要 Node.js `20.19+`。
+Halo `2.26+` 的命令行内容管理工具，当前版本为 `0.5.0`。运行时需要 Node.js `20.19+`。
 
 ## 开发
 
@@ -33,8 +33,19 @@ halo-cli tag --help
 halo-cli comment --help
 halo-cli attachment --help
 halo-cli menu --help
-halo-cli plugin --help
-halo-cli theme --help
+   halo-cli plugin --help
+   halo-cli theme --help
+   halo-cli extension --help
+   halo-cli search --help
+   halo-cli api --help
+   halo-cli hao --help
+   ```
+
+Hao 1.7.3 与常用插件适配状态：
+
+```bash
+halo-cli hao doctor
+halo-cli extension presets
 ```
 
 页面命令覆盖发布、回收站和内容快照；评论命令覆盖审核与回复；附件命令覆盖策略/分组查询、本地上传、URL 转存、更新、流式下载和删除；菜单命令覆盖主菜单、复制、内容引用、树形移动和级联删除；插件和主题命令覆盖发现、详情、Setting Schema、当前配置读取和 JSON 导出。配置读取默认脱敏，原始敏感配置只能导出到文件；所有查询及写操作都支持 `--json`，不可逆操作必须显式传入 `--yes`。
