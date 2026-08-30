@@ -7,7 +7,7 @@
 
 Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 Halo 内容。插件在 Console 中提供 CLI 下载入口，CLI 通过 Halo 官方 REST API 和个人令牌访问一个或多个 Halo 站点。
 
-当前版本为 `0.3.0`，已实现文章、页面、分类、标签、评论、附件和菜单管理，兼容 Halo `2.26+`。
+当前版本为 `0.4.0`，已实现文章、页面、分类、标签、评论、附件、菜单以及插件/主题配置只读管理，兼容 Halo `2.26+`。
 
 > [!NOTE]
 > 本项目是社区插件，与 Halo 官方发布的 [`@halo-dev/cli`](https://github.com/halo-dev/cli) 相互独立。
@@ -21,6 +21,7 @@ Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 H
 - 评论审核：支持评论与回复查询、批准、取消批准、回复和异步删除
 - 附件管理：支持本地上传、URL 转存、查询、更新、下载和异步删除
 - 菜单管理：支持主菜单、菜单复制、内容引用、任意层级和拖拽等价排序
+- 插件和主题配置：发现资源、读取配置 Schema、读取当前 JSON 配置并安全导出
 - 内容属性：支持多分类、多标签、公开/内部/私密可见性、置顶和评论开关
 - 多级分类：通过父分类 `metadata.name` 创建任意层级结构
 - 自动化友好：所有查询及写操作均可输出 JSON
@@ -52,6 +53,7 @@ Terminal ── halo-cli ──┴── Bearer PAT ──> Halo Core / Console 
 | 评论 | 评论与回复查询、审核、回复和删除 | 已完成 |
 | 附件 | 查询、本地上传、URL 转存、更新、下载和删除 | 已完成 |
 | 菜单 | 菜单组、主菜单、复制、菜单项树、内容引用、移动和删除 | 已完成 |
+| 插件和主题 | 发现、详情、Setting Schema、当前配置和 JSON 导出 | 已完成（只读） |
 
 ## 安装
 
@@ -121,6 +123,8 @@ halo-cli page list
 halo-cli comment list
 halo-cli attachment list
 halo-cli menu list
+halo-cli plugin list
+halo-cli theme current
 halo-cli category list
 halo-cli tag list
 
@@ -396,6 +400,39 @@ halo-cli menu delete <menu-name> --yes
 > [!NOTE]
 > Halo 2.26 已弃用 `Menu.spec.menuItems` 和 `MenuItem.spec.children` 作为层级来源。CLI 只通过 `MenuItem.spec.menuName`、`parent`、`priority` 和 Console position API 管理树结构。
 
+### 插件与主题配置（只读）
+
+0.4.0 提供插件和主题的发现、配置 Schema 查看、当前配置读取与 JSON 导出。配置命令不会修改插件或主题：
+
+```bash
+halo-cli plugin list
+halo-cli plugin get <plugin-name>
+halo-cli plugin setting <plugin-name>
+halo-cli plugin config <plugin-name>
+halo-cli plugin config-export <plugin-name> --output ./plugin-config.json
+
+halo-cli theme list
+halo-cli theme current
+halo-cli theme get <theme-name>
+halo-cli theme setting <theme-name>
+halo-cli theme config <theme-name>
+halo-cli theme config-export <theme-name> --output ./theme-config.json
+```
+
+`plugin list` 和 `theme list` 显示 `metadata.name`、显示名称、版本、启用/激活状态，以及是否声明 Setting 和 ConfigMap。`setting` 输出 Halo Console 用于渲染 FormKit 表单的完整 Setting Schema；`config` 输出当前按配置分组的 JSON 数据。
+
+配置中的字段名包含 `password`、`token`、`secret`、`apiKey`、`credential`、`authorization` 或 `key` 时，终端输出和普通导出会递归替换为 `[REDACTED]`。如果确实需要导出原始敏感字段，只能显式使用：
+
+```bash
+halo-cli plugin config-export <plugin-name> \
+  --output ./plugin-config-with-secrets.json \
+  --include-secrets
+```
+
+敏感配置禁止直接打印到终端；导出文件默认使用 `0600` 权限，已存在的目标文件默认拒绝覆盖，替换时必须使用 `--force`。`config-export` 需要显式指定 `--output`。
+
+该版本只处理 Halo 标准 Setting/ConfigMap 配置。插件或主题自定义的 OAuth 授权、测试连接、文件上传、远程选项和业务接口不属于本期范围。
+
 ## JSON 与自动化
 
 所有查询和写操作都支持 `--json`，错误信息写入 stderr，失败时退出码非零：
@@ -404,6 +441,8 @@ halo-cli menu delete <menu-name> --yes
 halo-cli post list --json | jq '.items[].post.spec.title'
 halo-cli page list --json | jq '.items[].page.spec.title'
 halo-cli attachment list --json | jq '.items[].status.permalink'
+halo-cli plugin config <plugin-name> --json | jq 'keys'
+halo-cli theme config <theme-name> --json | jq 'keys'
 halo-cli menu tree primary --json | jq '.. | objects | .menuItem?.metadata.name // empty'
 halo-cli category list --json | jq '.items[] | {name: .metadata.name, title: .spec.displayName}'
 ```
@@ -499,7 +538,8 @@ src/main/resources/   插件清单与 RBAC 角色模板
 - `0.1.x`：文章、分类和标签管理
 - `0.2.x`：页面、评论和附件管理
 - `0.3.x`：菜单组、主菜单和树形菜单项管理
-- 后续：批量操作、导入导出、Shell 补全、附件分组/策略管理和更多内容类型
+- `0.4.x`：插件和主题发现、Setting Schema、当前配置读取和 JSON 导出（只读）
+- 后续：配置导入与修改、批量操作、导入导出、Shell 补全、附件分组/策略管理和更多内容类型
 
 欢迎通过 [Issues](https://github.com/hanserwei/halo-cli/issues) 提交问题或建议。
 
