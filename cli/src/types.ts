@@ -281,6 +281,55 @@ export interface MenuSystemConfig {
   primary?: string
 }
 
+export interface Plugin {
+  apiVersion: string
+  kind: string
+  metadata: Metadata
+  spec: {
+    configMapName?: string
+    description?: string
+    displayName?: string
+    enabled?: boolean
+    logo?: string
+    requires?: string
+    repo?: string
+    settingName?: string
+    version: string
+    [key: string]: unknown
+  }
+  status?: Record<string, unknown>
+}
+
+export interface Theme {
+  apiVersion: string
+  kind: string
+  metadata: Metadata
+  spec: {
+    configMapName?: string
+    description?: string
+    displayName: string
+    logo?: string
+    requires?: string
+    repo?: string
+    settingName?: string
+    version?: string
+    [key: string]: unknown
+  }
+  status?: Record<string, unknown>
+}
+
+export interface Setting {
+  apiVersion: string
+  kind: string
+  metadata: Metadata
+  spec: {
+    forms: unknown[]
+    [key: string]: unknown
+  }
+}
+
+export type JsonObject = Record<string, unknown>
+
 export interface Category {
   apiVersion: 'content.halo.run/v1alpha1'
   kind: 'Category'

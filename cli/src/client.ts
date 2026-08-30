@@ -17,7 +17,7 @@ export async function createHaloClient(options: ConnectionOptions): Promise<Halo
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${profile.token}`,
-      'User-Agent': 'halo-cli/0.3.0',
+      'User-Agent': 'halo-cli/0.4.0',
     },
     paramsSerializer: { indexes: null },
     maxRedirects: 0,
@@ -60,6 +60,31 @@ export function consoleMenuItemPath(name?: string, action?: string): string {
 
 export function systemConfigPath(group: string): string {
   return `/apis/console.api.halo.run/v1alpha1/systemconfigs/${encodeURIComponent(group)}`
+}
+
+export function extensionPath(
+  group: 'plugin.halo.run' | 'theme.halo.run',
+  resource: 'plugins' | 'themes',
+  name?: string,
+): string {
+  const base = `/apis/${group}/v1alpha1/${resource}`
+  return name ? `${base}/${encodeURIComponent(name)}` : base
+}
+
+export function consolePluginPath(name?: string, action?: string): string {
+  const base = '/apis/api.console.halo.run/v1alpha1/plugins'
+  const resource = name ? `${base}/${encodeURIComponent(name)}` : base
+  return action ? `${resource}/${action}` : resource
+}
+
+export function consoleThemePath(name?: string, action?: string): string {
+  const base = '/apis/api.console.halo.run/v1alpha1/themes'
+  const resource = name ? `${base}/${encodeURIComponent(name)}` : base
+  return action ? `${resource}/${action}` : resource
+}
+
+export function consoleActivatedThemePath(): string {
+  return '/apis/api.console.halo.run/v1alpha1/themes/-/activation'
 }
 
 export function consolePostPath(name?: string, action?: string): string {

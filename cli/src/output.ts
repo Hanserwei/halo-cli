@@ -16,10 +16,12 @@ import type {
   MenuItemTreeNode,
   Page,
   Post,
+  Plugin,
   Reply,
   SinglePage,
   StoragePolicy,
   Tag,
+  Theme,
 } from './types.js'
 
 export function printJson(value: unknown): void {
@@ -331,6 +333,78 @@ export function printMenuItemTree(tree: MenuItemTreeNode[], json = false): void 
   }
   visit(tree, 0)
   printTable(['DEPTH', 'NAME', 'DISPLAY NAME', 'HREF', 'TARGET', 'SOURCE'], rows)
+}
+
+export function printPluginList(page: Page<Plugin>, json = false): void {
+  if (json) {
+    printJson(page)
+    return
+  }
+  printTable(
+    ['NAME', 'DISPLAY NAME', 'ENABLED', 'VERSION', 'SETTING', 'CONFIG'],
+    page.items.map((plugin) => [
+      plugin.metadata.name,
+      plugin.spec.displayName ?? '-',
+      String(plugin.spec.enabled ?? false),
+      plugin.spec.version,
+      plugin.spec.settingName ? 'yes' : '-',
+      plugin.spec.configMapName ? 'yes' : '-',
+    ]),
+  )
+  process.stdout.write(`第 ${page.page || 1}/${page.totalPages || 1} 页，共 ${page.total} 个插件\n`)
+}
+
+export function printPlugin(plugin: Plugin, json = false): void {
+  if (json) {
+    printJson(plugin)
+    return
+  }
+  printTable(['FIELD', 'VALUE'], [
+    ['Name', plugin.metadata.name],
+    ['Display name', plugin.spec.displayName ?? '-'],
+    ['Version', plugin.spec.version],
+    ['Enabled', String(plugin.spec.enabled ?? false)],
+    ['Phase', String(plugin.status?.phase ?? '-')],
+    ['Setting', plugin.spec.settingName ?? '-'],
+    ['ConfigMap', plugin.spec.configMapName ?? '-'],
+    ['Description', plugin.spec.description ?? '-'],
+  ])
+}
+
+export function printThemeList(page: Page<Theme>, activeName: string | undefined, json = false): void {
+  if (json) {
+    printJson({ ...page, active: activeName })
+    return
+  }
+  printTable(
+    ['NAME', 'DISPLAY NAME', 'ACTIVE', 'VERSION', 'SETTING', 'CONFIG'],
+    page.items.map((theme) => [
+      theme.metadata.name,
+      theme.spec.displayName,
+      theme.metadata.name === activeName ? 'yes' : '-',
+      theme.spec.version ?? '-',
+      theme.spec.settingName ? 'yes' : '-',
+      theme.spec.configMapName ? 'yes' : '-',
+    ]),
+  )
+  process.stdout.write(`第 ${page.page || 1}/${page.totalPages || 1} 页，共 ${page.total} 个主题\n`)
+}
+
+export function printTheme(theme: Theme, activeName: string | undefined, json = false): void {
+  if (json) {
+    printJson({ ...theme, active: theme.metadata.name === activeName })
+    return
+  }
+  printTable(['FIELD', 'VALUE'], [
+    ['Name', theme.metadata.name],
+    ['Display name', theme.spec.displayName],
+    ['Active', String(theme.metadata.name === activeName)],
+    ['Version', theme.spec.version ?? '-'],
+    ['Phase', String(theme.status?.phase ?? '-')],
+    ['Setting', theme.spec.settingName ?? '-'],
+    ['ConfigMap', theme.spec.configMapName ?? '-'],
+    ['Description', theme.spec.description ?? '-'],
+  ])
 }
 
 export function printCategoryList(page: Page<Category>, json = false): void {

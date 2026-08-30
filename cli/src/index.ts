@@ -6,13 +6,15 @@ import { registerCategoryCommands } from './commands/category.js'
 import { registerCommentCommands } from './commands/comment.js'
 import { registerMenuCommands } from './commands/menu.js'
 import { registerPageCommands } from './commands/page.js'
+import { registerPluginCommands } from './commands/plugin.js'
 import { registerPostCommands } from './commands/post.js'
 import { registerTagCommands } from './commands/tag.js'
+import { registerThemeCommands } from './commands/theme.js'
 import { CliError } from './errors.js'
 
 export function createCli() {
   const cli = cac('halo-cli')
-  cli.version('0.3.0')
+  cli.version('0.4.0')
   cli.help()
   cli.command('auth', '认证和连接配置')
   cli.command('post', '文章管理')
@@ -22,14 +24,26 @@ export function createCli() {
   cli.command('comment', '评论和回复管理')
   cli.command('attachment', '附件管理')
   cli.command('menu', '菜单和菜单项管理')
+  cli.command('plugin', '插件发现和配置查看')
+  cli.command('theme', '主题发现和配置查看')
   return cli
 }
 
-type CommandGroup = 'attachment' | 'auth' | 'category' | 'comment' | 'menu' | 'page' | 'post' | 'tag'
+type CommandGroup =
+  | 'attachment'
+  | 'auth'
+  | 'category'
+  | 'comment'
+  | 'menu'
+  | 'page'
+  | 'plugin'
+  | 'post'
+  | 'tag'
+  | 'theme'
 
 function createGroupCli(group: CommandGroup): CAC {
   const cli = cac(`halo-cli ${group}`)
-  cli.version('0.3.0')
+  cli.version('0.4.0')
   cli.help()
   if (group === 'auth') registerAuthCommands(cli)
   if (group === 'post') registerPostCommands(cli)
@@ -39,6 +53,8 @@ function createGroupCli(group: CommandGroup): CAC {
   if (group === 'comment') registerCommentCommands(cli)
   if (group === 'attachment') registerAttachmentCommands(cli)
   if (group === 'menu') registerMenuCommands(cli)
+  if (group === 'plugin') registerPluginCommands(cli)
+  if (group === 'theme') registerThemeCommands(cli)
   return cli
 }
 
@@ -50,8 +66,10 @@ function isCommandGroup(value: string | undefined): value is CommandGroup {
     value === 'comment' ||
     value === 'menu' ||
     value === 'page' ||
+    value === 'plugin' ||
     value === 'post' ||
-    value === 'tag'
+    value === 'tag' ||
+    value === 'theme'
   )
 }
 

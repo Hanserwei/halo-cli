@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest'
 
 import {
   consoleAttachmentPath,
+  consoleActivatedThemePath,
   consoleCommentPath,
   consoleMenuItemPath,
   consoleMenuPath,
+  consolePluginPath,
   consolePostPath,
   consoleReplyPath,
   consoleSinglePagePath,
+  consoleThemePath,
+  extensionPath,
   menuPath,
   resourcePath,
   storagePath,
@@ -108,6 +112,21 @@ describe('Halo resources', () => {
     )
     expect(systemConfigPath('menu/group')).toBe(
       '/apis/console.api.halo.run/v1alpha1/systemconfigs/menu%2Fgroup',
+    )
+    expect(extensionPath('plugin.halo.run', 'plugins', 'plugin/one')).toBe(
+      '/apis/plugin.halo.run/v1alpha1/plugins/plugin%2Fone',
+    )
+    expect(extensionPath('theme.halo.run', 'themes', 'theme/one')).toBe(
+      '/apis/theme.halo.run/v1alpha1/themes/theme%2Fone',
+    )
+    expect(consolePluginPath('plugin/one', 'setting')).toBe(
+      '/apis/api.console.halo.run/v1alpha1/plugins/plugin%2Fone/setting',
+    )
+    expect(consoleThemePath('theme/one', 'json-config')).toBe(
+      '/apis/api.console.halo.run/v1alpha1/themes/theme%2Fone/json-config',
+    )
+    expect(consoleActivatedThemePath()).toBe(
+      '/apis/api.console.halo.run/v1alpha1/themes/-/activation',
     )
   })
 
