@@ -14,7 +14,7 @@ export default definePlugin({
         meta: {
           title: 'Halo CLI',
           searchable: true,
-          permissions: ['plugin:halo-cli:download:view'],
+          permissions: ['plugin:halo-cli:download:view', 'plugin:halo-cli:keys:view'],
           menu: {
             name: 'Halo CLI',
             group: 'tool',

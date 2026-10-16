@@ -23,6 +23,9 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 export function redactSecrets(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value.replace(/\b(?:hcli|pat)_[A-Za-z0-9_-]+/gu, '[REDACTED]')
+  }
   if (Array.isArray(value)) {
     return value.map(redactSecrets)
   }

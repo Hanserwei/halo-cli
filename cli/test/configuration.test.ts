@@ -43,6 +43,18 @@ describe('configuration secrets and exports', () => {
     })
   })
 
+  it('redacts credentials echoed inside ordinary API response text', () => {
+    const value = {
+      message: 'Authorization: Bearer hcli_019f3d00-0000-4000-8000-000000000000_random-secret',
+      items: ['pat_test_credential', 'https://example.test'],
+    }
+    expect(redactSecrets(value)).toEqual({
+      message: 'Authorization: Bearer [REDACTED]',
+      items: ['[REDACTED]', 'https://example.test'],
+    })
+    expect(value.items[0]).toBe('pat_test_credential')
+  })
+
   it('writes private JSON exports atomically and refuses accidental replacement', async () => {
     const directory = await temporaryDirectory()
     const output = join(directory, 'plugin.json')

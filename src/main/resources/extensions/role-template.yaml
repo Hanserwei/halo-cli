@@ -13,3 +13,55 @@ rules:
   - apiGroups: ["console.api.halo-cli.halo.run"]
     resources: ["downloads"]
     verbs: ["get"]
+---
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: halo-cli-role-view-keys
+  labels:
+    halo.run/role-template: "true"
+  annotations:
+    rbac.authorization.halo.run/module: "Halo CLI"
+    rbac.authorization.halo.run/display-name: "查看自己的 CLI 密钥"
+    rbac.authorization.halo.run/ui-permissions: |
+      ["plugin:halo-cli:keys:view"]
+rules:
+  - apiGroups: ["console.api.halo-cli.halo.run"]
+    resources: ["keys", "scopes"]
+    verbs: ["list"]
+---
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: halo-cli-role-manage-keys
+  labels:
+    halo.run/role-template: "true"
+  annotations:
+    rbac.authorization.halo.run/module: "Halo CLI"
+    rbac.authorization.halo.run/display-name: "管理自己的 CLI 密钥"
+    rbac.authorization.halo.run/dependencies: |
+      ["halo-cli-role-view-keys"]
+    rbac.authorization.halo.run/ui-permissions: |
+      ["plugin:halo-cli:keys:manage"]
+rules:
+  - apiGroups: ["console.api.halo-cli.halo.run"]
+    resources: ["keys"]
+    verbs: ["create", "update", "delete"]
+  - apiGroups: ["console.api.halo-cli.halo.run"]
+    resources: ["keys/rotate"]
+    verbs: ["create"]
+---
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: halo-cli-role-auth-me
+  labels:
+    halo.run/role-template: "true"
+    halo.run/hidden: "true"
+    # Halo aggregates this rule into every authenticated owner's current permissions.
+    rbac.authorization.halo.run/aggregate-to-authenticated: "true"
+rules:
+  - apiGroups: ["console.api.halo-cli.halo.run"]
+    resources: ["auth"]
+    resourceNames: ["me"]
+    verbs: ["get"]

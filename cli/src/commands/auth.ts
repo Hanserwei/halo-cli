@@ -1,7 +1,7 @@
 import type { CAC } from 'cac'
 
 import { createHaloClient } from '../client.js'
-import { loadConfig, normalizeUrl, saveConfig } from '../config.js'
+import { loadConfig, normalizeUrl, saveConfig, validateToken } from '../config.js'
 import { CliError } from '../errors.js'
 import { printJson } from '../output.js'
 import { required } from '../options.js'
@@ -11,6 +11,7 @@ interface LoginOptions {
   profile?: string
   skipVerify?: boolean
   token?: string
+  tokenStdin?: boolean
   url?: string
 }
 
@@ -18,34 +19,60 @@ interface ProfileOptions {
   json?: boolean
 }
 
-function safeProfiles(config: Awaited<ReturnType<typeof loadConfig>>) {
-  return Object.entries(config.profiles).map(([name, profile]) => ({
-    current: name === config.currentProfile,
-    name,
-    url: profile.url,
-  }))
-}
 
 export function registerAuthCommands(cli: CAC): void {
   cli
-    .command('login', '保存 Halo 地址和个人令牌')
+    .command('login', '保存 Halo 地址和 CLI 密钥或个人令牌')
     .option('--profile <name>', '连接名称', { default: 'default' })
     .option('--url <url>', 'Halo 站点地址')
-    .option('--token <token>', '以 pat_ 开头的个人令牌')
+    .option('--token <token>', 'CLI 密钥或个人令牌')
+    .option('--token-stdin', '从标准输入读取凭据（不能与 --token 同时使用）')
     .option('--skip-verify', '保存前不验证连接')
     .option('--json', '输出 JSON')
     .action(async (options: LoginOptions) => {
       const name = required(options.profile, '连接名称')
-      const url = normalizeUrl(required(options.url, 'Halo 地址（--url）'))
-      const token = required(options.token, '个人令牌（--token）')
+      if (options.tokenStdin && options.token !== undefined) {
+        throw new CliError('--token-stdin 不能与 --token 同时使用。')
+      }
+      let input = options.token
+      if (options.tokenStdin) {
+        if (process.stdin.isTTY) {
+          throw new CliError('--token-stdin 需要管道或重定向输入。')
+        }
+        let contents = ''
+        try {
+          for await (const chunk of process.stdin) {
+            contents += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk
+            if (Buffer.byteLength(contents) > 16_384) {
+              throw new CliError('标准输入凭据过长。')
+            }
+          }
+        } catch {
+          throw new CliError('无法读取标准输入凭据。')
+        }
+        input = contents.replace(/\r?\n$/, '')
+      }
+      const explicitCredentials = options.url !== undefined || options.token !== undefined || options.tokenStdin
+      const url = normalizeUrl(required(explicitCredentials ? options.url : process.env.HALO_BASE_URL, 'Halo 地址（--url）'))
+      const token = validateToken(explicitCredentials ? input : process.env.HALO_TOKEN)
 
       if (!options.skipVerify) {
         const connection = await createHaloClient({ token, url })
-        await connection.http.get('/apis/api.console.halo.run/v1alpha1/users/-')
+        if (token.startsWith('hcli_')) {
+          const { data } = await connection.http.get('/apis/console.api.halo-cli.halo.run/v1alpha1/auth/me')
+          if (!data || typeof data.username !== 'string' || !data.username
+            || typeof data.keyName !== 'string' || !data.keyName
+            || typeof data.keyDisplayName !== 'string'
+            || !Array.isArray(data.scopes) || !data.scopes.every((scope: unknown) => typeof scope === 'string')) {
+            throw new CliError('CLI 密钥验证响应无效。')
+          }
+        } else {
+          await connection.http.get('/apis/api.console.halo.run/v1alpha1/users/-')
+        }
       }
 
       const config = await loadConfig()
-      config.profiles[name] = { token, url }
+      Object.defineProperty(config.profiles, name, { value: { token, url }, enumerable: true, configurable: true, writable: true })
       config.currentProfile = name
       await saveConfig(config)
 
@@ -61,7 +88,12 @@ export function registerAuthCommands(cli: CAC): void {
     .command('list', '列出已保存的连接')
     .option('--json', '输出 JSON')
     .action(async (options: ProfileOptions) => {
-      const profiles = safeProfiles(await loadConfig())
+      const config = await loadConfig()
+      const profiles = Object.entries(config.profiles).map(([name, profile]) => ({
+        current: name === config.currentProfile,
+        name,
+        url: normalizeUrl(profile.url),
+      }))
       if (options.json) {
         printJson(profiles)
         return
@@ -85,11 +117,11 @@ export function registerAuthCommands(cli: CAC): void {
       if (!name || !profile) {
         throw new CliError('尚未选择连接。请先运行 `halo-cli auth login`。')
       }
-      const result = { name, url: profile.url }
+      const result = { name, url: normalizeUrl(profile.url) }
       if (options.json) {
         printJson(result)
       } else {
-        process.stdout.write(`${name}\t${profile.url}\n`)
+        process.stdout.write(`${name}\t${result.url}\n`)
       }
     })
 
@@ -100,11 +132,11 @@ export function registerAuthCommands(cli: CAC): void {
       const config = await loadConfig()
       const profile = config.profiles[name]
       if (!profile) {
-        throw new CliError(`连接配置不存在：${name}`)
+        throw new CliError('连接配置不存在。')
       }
       config.currentProfile = name
       await saveConfig(config)
-      const result = { current: true, name, url: profile.url }
+      const result = { current: true, name, url: normalizeUrl(profile.url) }
       if (options.json) {
         printJson(result)
       } else {

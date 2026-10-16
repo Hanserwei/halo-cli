@@ -16,12 +16,10 @@
     "@halo-dev/api-client": "^2.26.0",
     "@halo-dev/components": "^2.26.0",
     "@halo-dev/ui-shared": "^2.26.0",
-    "antdv-next": "^1.5.3",
     "axios": "^1.19.0",
     "vue": "3.5.41"
   },
   "devDependencies": {
-    "vite": "^8.2.0",
     "@halo-dev/ui-plugin-bundler-kit": "^2.26.0",
     "@iconify-json/ri": "^1.2.10",
     "@tsconfig/node24": "^24.0.4",
@@ -32,6 +30,7 @@
     "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/test-utils": "^2.4.11",
     "@vue/tsconfig": "^0.9.1",
+    "@vueuse/core": "10.11.1",
     "eslint": "^10.7.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "~1.77.0",
@@ -43,7 +42,9 @@
     "prettier": "3.9.6",
     "sass": "^1.102.0",
     "typescript": "~6.0.0",
+    "unocss": "^66.8.1",
     "unplugin-icons": "^23.0.1",
+    "vite": "^8.2.0",
     "vitest": "^4.1.10",
     "vue-tsc": "^3.3.7"
   },

@@ -1,10 +1,14 @@
 package com.hanserwei.halocli;
 
+import static org.mockito.Mockito.verify;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import run.halo.app.extension.Scheme;
+import run.halo.app.extension.SchemeManager;
 import run.halo.app.plugin.PluginContext;
 
 @ExtendWith(MockitoExtension.class)
@@ -12,13 +16,18 @@ class HaloCliPluginTest {
 
     @Mock
     PluginContext context;
+    @Mock
+    SchemeManager schemeManager;
+
 
     @InjectMocks
     HaloCliPlugin plugin;
 
     @Test
-    void contextLoads() {
+    void registersAndUnregistersKeySchemeWithoutDeletingKeys() {
         plugin.start();
+        verify(schemeManager).register(CliAccessKey.class);
         plugin.stop();
+        verify(schemeManager).unregister(Scheme.buildFromType(CliAccessKey.class));
     }
 }

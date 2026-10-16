@@ -60,6 +60,29 @@ describe('attachment download', () => {
     expect(externalAuthorization).toBeUndefined()
   })
 
+  it('downloads same-site public permalinks without sending a CLI key, including redirects', async () => {
+    const authorizations: Array<string | undefined> = []
+    const haloUrl = await listen(createServer((request, response) => {
+      authorizations.push(request.headers.authorization)
+      if (request.headers.authorization) {
+        response.writeHead(403).end()
+      } else if (request.url === '/upload/original.txt') {
+        response.writeHead(302, { Location: '/upload/final.txt' }).end()
+      } else {
+        response.end('public attachment')
+      }
+    }))
+    const directory = await mkdtemp(join(tmpdir(), 'halo-cli-download-'))
+    temporaryDirectories.push(directory)
+    const output = join(directory, 'public.txt')
+    const http = axios.create({ baseURL: haloUrl, headers: { Authorization: 'Bearer hcli_test_secret' } })
+
+    await downloadAttachmentToFile(http, haloUrl, '/upload/original.txt', output, false)
+
+    expect(await readFile(output, 'utf8')).toBe('public attachment')
+    expect(authorizations).toEqual([undefined, undefined])
+  })
+
   it('atomically refuses an existing file when force is false', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'halo-cli-download-'))
     temporaryDirectories.push(directory)

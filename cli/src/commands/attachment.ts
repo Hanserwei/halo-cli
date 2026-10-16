@@ -101,10 +101,12 @@ export async function downloadAttachmentToFile(
   const temporaryOutput = `${output}.halo-cli-${process.pid}-${randomUUID()}.tmp`
   const file = await open(temporaryOutput, 'wx')
   let size = 0
+  const authorization = http.defaults?.headers?.Authorization ?? http.defaults?.headers?.common?.Authorization
+  const publicDownload = typeof authorization === 'string' && /^Bearer\s+hcli_/iu.test(authorization)
   try {
     let target = new URL(permalink, baseUrl)
     for (let redirects = 0; redirects <= 5; redirects++) {
-      const authenticated = hasSameOrigin(baseUrl, target.href)
+      const authenticated = !publicDownload && hasSameOrigin(baseUrl, target.href)
       const requestUrl = authenticated ? `${target.pathname}${target.search}` : target.href
       const request = authenticated ? http : axios
       const response: AxiosResponse<Readable> = await request.get(requestUrl, {

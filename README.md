@@ -5,9 +5,9 @@
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D%2020.19-339933)](https://nodejs.org/)
 [![License](https://img.shields.io/github/license/hanserwei/halo-cli)](./LICENSE)
 
-Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 Halo 内容。插件在 Console 中提供 CLI 下载入口，CLI 通过 Halo 官方 REST API 和个人令牌访问一个或多个 Halo 站点。
+Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 Halo 内容。插件在 Halo Console 中提供 CLI 下载、连接指南和访问密钥管理；CLI 使用专用访问密钥或 Halo 个人令牌访问一个或多个站点。
 
-当前版本为 `0.5.0`，已实现 Halo 核心内容管理、插件/主题生命周期与配置写入、通用 Extension CRUD，以及 Hao 1.7.3 和常用插件适配，兼容 Halo `2.26+`。
+当前版本为 `0.5.0`，支持 Halo 核心内容管理、插件/主题生命周期与配置、常用插件适配，以及邮件模板查询、编辑、校验和导入导出，兼容 Halo `2.26+`。
 
 > [!NOTE]
 > 本项目是社区插件，与 Halo 官方发布的 [`@halo-dev/cli`](https://github.com/halo-dev/cli) 相互独立。
@@ -16,6 +16,9 @@ Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 H
 
 - 单文件 CLI：插件内嵌 `halo-cli.cjs`，下载后无需安装额外 npm 依赖
 - 多环境管理：可保存多套站点配置，也可完全通过环境变量运行
+- 访问密钥：可设置操作范围、有效期和 IP 白名单，支持轮换、停用和删除
+- 原生控制台：使用 Halo 页面、卡片、列表和弹窗管理密钥与下载 CLI
+- 邮件模板：通过独立维护的邮件模板插件管理默认与自定义模板
 - 文章工作流：支持草稿、发布、取消发布、回收、恢复和永久删除
 - 页面工作流：支持独立页面生命周期以及内容快照查询、恢复和删除
 - 评论审核：支持评论与回复查询、批准、取消批准、回复和异步删除
@@ -32,22 +35,22 @@ Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 H
 ## 工作方式
 
 ```text
-Halo Console
-    │
-    ├── 安装插件 ──> 受 RBAC 保护的 CLI 下载接口 ──> halo-cli.cjs
-    │
-    └── 创建个人令牌
-                       │
-Terminal ── halo-cli ──┴── Bearer PAT ──> Halo Core / Console REST API
+Halo Console ── 下载 CLI / 创建专用访问密钥
+                              │
+Terminal ── halo-cli ── Bearer hcli_... ──> 密钥状态与操作范围检查
+                                               │
+                                      owner 当前 Halo RBAC
+                                               │
+                                      Halo / 插件 REST API
 ```
 
-插件只负责分发 CLI，不代理内容管理请求。CLI 直接连接目标 Halo，因此同一个 CLI 可以管理多个站点。
+专用密钥仅能访问服务端明确登记且被授权的操作，并继续受所属用户当前的 Halo 权限约束。个人令牌沿用 Halo 原有认证流程。CLI 直接连接目标站点，可以保存多个连接。
 
 ## 功能状态
 
 | 资源 | 能力 | 状态 |
 | --- | --- | --- |
-| 认证 | 登录验证、多 Profile、环境变量、切换和退出 | 已完成 |
+| 认证 | 专用密钥、操作范围、有效期/IP、轮换、PAT 兼容、多 Profile、环境变量和标准输入 | 已完成 |
 | 文章 | 列表、详情、创建、更新、发布、取消发布、回收、恢复、永久删除 | 已完成 |
 | 分类 | 列表、详情、多级创建、更新、删除 | 已完成 |
 | 标签 | 列表、详情、创建、更新、删除 | 已完成 |
@@ -59,6 +62,7 @@ Terminal ── halo-cli ──┴── Bearer PAT ──> Halo Core / Console 
 | Extension | 已知别名及任意 `group/version/resource` 的列表、详情、创建、合并更新、JSON Pointer、JSON Patch 和删除 | 已完成 |
 | Hao 1.7.3 | 依赖体检、7 个页面模板、5 类注解字段及常用插件模型映射 | 已完成 |
 | 搜索和插件 API | Halo 搜索索引、同站 JSON API、multipart 文件上传和敏感响应脱敏 | 已完成 |
+| 邮件模板 | 查询、编辑、导入导出、校验、恢复默认与验证发送 | 已完成 |
 
 ## 安装
 
@@ -103,18 +107,19 @@ unset HALO_TOKEN
 
 ### 3. 连接 Halo
 
-在 Halo 个人中心创建个人令牌。为了避免令牌进入 Shell 历史，可以先静默读取：
+在「工具 / Halo CLI」中创建专用访问密钥，选择需要的操作范围、有效期和可选的 IP 白名单。完整密钥只在创建和轮换后显示一次。将它通过标准输入交给 CLI：
 
 ```bash
-read -rsp "Halo PAT: " HALO_PAT_INPUT
-halo-cli auth login \
+read -rsp "Halo CLI key: " HALO_KEY_INPUT
+printf '\n'
+printf '%s' "${HALO_KEY_INPUT}" | halo-cli auth login \
   --profile production \
   --url https://your-halo.example \
-  --token "${HALO_PAT_INPUT}"
-unset HALO_PAT_INPUT
+  --token-stdin
+unset HALO_KEY_INPUT
 ```
 
-`auth login` 会在保存前请求 Halo 当前用户接口验证地址和令牌。
+`auth login` 在保存前验证密钥身份。专用密钥调用插件的 `/auth/me`，PAT 调用 Halo 当前用户接口。现有 PAT、`--token` 和已保存的 Profile 继续可用。密钥的能力同时取决于所选操作范围和所属用户当前权限。
 
 ## 快速开始
 
@@ -146,13 +151,13 @@ halo-cli post create --help
 
 | 命令 | 说明 |
 | --- | --- |
-| `halo-cli auth login` | 验证并保存站点地址和个人令牌 |
+| `halo-cli auth login` | 验证并保存站点地址和访问凭据，支持 `--token-stdin` |
 | `halo-cli auth list` | 列出 Profile，不显示令牌 |
 | `halo-cli auth current` | 查看当前 Profile |
 | `halo-cli auth use <name>` | 切换当前 Profile |
-| `halo-cli auth logout [name]` | 删除 Profile 及其本地令牌 |
+| `halo-cli auth logout [name]` | 删除本地 Profile 和凭据；服务端密钥需在控制台停用或删除 |
 
-所有资源命令都支持 `--profile <name>`。也可以为单次请求同时传入 `--url` 和 `--token`。
+所有资源命令都支持 `--profile <name>`。单次请求可同时传入 `--url` 和 `--token`。显式凭据、环境凭据必须各自提供完整的地址和密钥，CLI 不跨来源拼接；显式 Profile 会隔离临时环境凭据。
 
 ### 文章
 
@@ -636,6 +641,34 @@ halo-cli api upload \
 
 `api request` 支持 GET、POST、PUT、PATCH 和 DELETE，使用 `--query <json>`、`--body <json>` 或 `--file <json-file>` 传参。DELETE 必须提供 `--yes`。API 响应默认递归脱敏；原始敏感响应仍只能配合 `--include-secrets --output <file>` 导出。
 
+### 邮件模板
+
+安装并启用 [邮件模板插件](https://github.com/hanserwei/plugin-mail-template) 后，可通过 CLI 管理。插件使用 `plugin-mail-template` 标识、Halo 通知模型和 `template-one-` 自定义资源名称，升级时保留已有模板。
+
+专用密钥需要选择对应的邮件模板操作范围；所属用户还需要邮件插件的查看、管理或验证发送权限。`<name>` 是通知原因 `ReasonType.metadata.name`，可从列表中获取。
+
+```bash
+halo-cli mail-template list
+halo-cli mail-template get <name> --json
+halo-cli mail-template properties
+
+# 导出有效模板，便于版本控制；已有文件需要显式 --force
+halo-cli mail-template export <name> --output ./mail-template.json
+halo-cli mail-template import <name> --file ./mail-template.json
+
+# 只更新传入的字段，其他标题和正文保持原值
+halo-cli mail-template update <name> --title "新的通知标题" --html-file ./notification.html
+
+# 校验未保存的内容，不发送邮件
+halo-cli mail-template validate <name> --html-file ./notification.html
+
+# 真实发送和恢复默认模板需要明确确认
+halo-cli mail-template verify <name> --yes
+halo-cli mail-template restore <name> --yes
+```
+
+`update` 和 `import` 的 `--file` 可接受包含 `title`、`htmlBody`、`rawBody`、`language` 的 JSON 对象，也可直接读取 `get` / `export` 导出的完整模板。命令行显式字段覆盖文件中对应字段；空正文文件表示清空该正文。首次修改以当前默认模板创建自定义模板，恢复操作只删除自定义版本。`verify` 将验证邮件提交给凭据所属用户的邮箱；命令成功表示提交成功，送达结果取决于 Halo 的邮件通知配置。
+
 ## JSON 与自动化
 
 所有查询和写操作都支持 `--json`，错误信息写入 stderr，失败时退出码非零：
@@ -654,7 +687,7 @@ CI 中可以完全绕过本地配置文件：
 
 ```bash
 HALO_BASE_URL=https://your-halo.example \
-HALO_TOKEN=pat_xxx \
+HALO_TOKEN=hcli_xxx \
 halo-cli post list --json
 ```
 
@@ -663,7 +696,7 @@ halo-cli post list --json
 | 环境变量 | 用途 |
 | --- | --- |
 | `HALO_BASE_URL` | 临时 Halo 地址，需和 `HALO_TOKEN` 一起使用 |
-| `HALO_TOKEN` | 临时个人令牌 |
+| `HALO_TOKEN` | 临时 CLI 访问密钥或 Halo 个人令牌 |
 | `HALO_PROFILE` | 选择已保存的 Profile |
 | `HALO_CLI_CONFIG_DIR` | 覆盖配置目录，常用于测试或 CI |
 | `XDG_CONFIG_HOME` | 控制默认 XDG 配置目录 |
@@ -680,11 +713,15 @@ halo-cli post list --json
 
 - 不要把配置文件加入版本控制或发送给其他人
 - 公共/共享机器优先使用 `HALO_TOKEN` 环境变量
-- 只授予 PAT 完成目标操作所需的最小权限
-- PAT 一旦出现在聊天、日志或 Shell 历史中，应立即撤销并重新生成
+- 仅为密钥选择需要的操作范围，并为所属用户配置相应的 Halo 角色
+- 凭据泄露后，在 Console 停用、轮换或删除密钥；PAT 则在个人中心撤销
 - 配置的 Halo 地址发生 HTTP 重定向时，CLI 会拒绝自动跟随，避免令牌或上传正文跨源重放
 
 CLI 不会在 `auth list`、`auth current` 或正常错误输出中显示令牌。
+
+IP 白名单匹配 Halo 收到的底层 TCP 连接地址，不使用 `Forwarded` / `X-Forwarded-For` 声称的客户端地址。经过反向代理时，该地址是代理的 IP，可以用白名单限制允许连接 Halo 的代理；这不能区分同一代理后的终端用户。取不到真实连接地址时，非空白名单会拒绝认证。
+
+专用密钥的服务端记录只保存随机密钥的哈希，列表和详情不会返回密钥内容。身份、角色、凭据以及密钥自身的管理接口不对专用密钥开放；未知 API 路径默认拒绝。通用 `extension` 和 `api` 命令使用专用密钥时也受同样的服务端限制，需要调用其他接口时可使用具备相应权限的 Halo PAT。
 
 ## 本地开发
 
@@ -730,8 +767,8 @@ pnpm build
 
 ```text
 cli/                  独立 CLI 源码、测试和单文件构建
-ui/                   Halo Console 下载与使用页面
-src/main/java/        插件生命周期和 CLI 下载 API
+ui/                   Halo Console 密钥管理、下载和使用页面
+src/main/java/        密钥生命周期、认证、操作范围和 CLI 下载 API
 src/main/resources/   插件清单与 RBAC 角色模板
 .github/workflows/    插件 CI/CD 工作流
 ```

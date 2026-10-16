@@ -1,6 +1,10 @@
 package com.hanserwei.halocli;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import run.halo.app.extension.Scheme;
+import run.halo.app.extension.SchemeManager;
 import run.halo.app.plugin.BasePlugin;
 import run.halo.app.plugin.PluginContext;
 
@@ -14,18 +18,23 @@ import run.halo.app.plugin.PluginContext;
  */
 @Component
 public class HaloCliPlugin extends BasePlugin {
+    private static final Logger log = LoggerFactory.getLogger(HaloCliPlugin.class);
+    private final SchemeManager schemeManager;
 
-    public HaloCliPlugin(PluginContext pluginContext) {
+    public HaloCliPlugin(PluginContext pluginContext, SchemeManager schemeManager) {
         super(pluginContext);
+        this.schemeManager = schemeManager;
     }
 
     @Override
     public void start() {
-        System.out.println("插件启动成功！");
+        schemeManager.register(CliAccessKey.class);
+        log.info("Halo CLI started");
     }
 
     @Override
     public void stop() {
-        System.out.println("插件停止！");
+        schemeManager.unregister(Scheme.buildFromType(CliAccessKey.class));
+        log.info("Halo CLI stopped");
     }
 }

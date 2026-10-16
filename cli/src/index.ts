@@ -7,6 +7,7 @@ import { registerCategoryCommands } from './commands/category.js'
 import { registerCommentCommands } from './commands/comment.js'
 import { registerExtensionCommands } from './commands/extension.js'
 import { registerHaoCommands } from './commands/hao.js'
+import { registerMailTemplateCommands } from './commands/mail-template.js'
 import { registerMenuCommands } from './commands/menu.js'
 import { registerPageCommands } from './commands/page.js'
 import { registerPluginCommands } from './commands/plugin.js'
@@ -34,6 +35,7 @@ export function createCli() {
   cli.command('search', 'Halo 搜索索引查询')
   cli.command('api', '调用当前 Halo 站点的插件 API')
   cli.command('hao', 'Hao 1.7.3 适配检查与元数据目录')
+  cli.command('mail-template', '邮件模板查询、编辑、校验和验证发送')
   return cli
 }
 
@@ -45,6 +47,7 @@ type CommandGroup =
   | 'comment'
   | 'extension'
   | 'hao'
+  | 'mail-template'
   | 'menu'
   | 'page'
   | 'plugin'
@@ -66,6 +69,7 @@ function createGroupCli(group: CommandGroup): CAC {
   if (group === 'comment') registerCommentCommands(cli)
   if (group === 'extension') registerExtensionCommands(cli)
   if (group === 'hao') registerHaoCommands(cli)
+  if (group === 'mail-template') registerMailTemplateCommands(cli)
   if (group === 'attachment') registerAttachmentCommands(cli)
   if (group === 'menu') registerMenuCommands(cli)
   if (group === 'plugin') registerPluginCommands(cli)
@@ -83,6 +87,7 @@ function isCommandGroup(value: string | undefined): value is CommandGroup {
     value === 'comment' ||
     value === 'extension' ||
     value === 'hao' ||
+    value === 'mail-template' ||
     value === 'menu' ||
     value === 'page' ||
     value === 'plugin' ||
