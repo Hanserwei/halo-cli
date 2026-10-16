@@ -45,7 +45,7 @@ halo-cli --help`
     <div class=":uno: space-y-6 text-sm">
       <VAlert title="运行环境" type="info" :closable="false">
         <template #description>
-          本地需要 Node.js 20.19 或更高版本，站点需要 Halo 2.26 或更高版本并启用 Halo CLI 插件。
+          本地需要 Node.js 20.19 或更高版本，站点需要 Halo 2.27.0 或更高版本并启用 Halo CLI 插件。
           可先运行 node --version 确认运行环境。
         </template>
       </VAlert>

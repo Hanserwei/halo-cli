@@ -1,13 +1,13 @@
 # Halo CLI
 
 [![CI](https://github.com/hanserwei/halo-cli/actions/workflows/ci.yaml/badge.svg)](https://github.com/hanserwei/halo-cli/actions/workflows/ci.yaml)
-[![Halo](https://img.shields.io/badge/Halo-%3E%3D%202.26-4f46e5)](https://www.halo.run/)
+[![Halo](https://img.shields.io/badge/Halo-%3E%3D%202.27-4f46e5)](https://www.halo.run/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D%2020.19-339933)](https://nodejs.org/)
 [![License](https://img.shields.io/github/license/hanserwei/halo-cli)](./LICENSE)
 
 Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 Halo 内容。插件在 Halo Console 中提供 CLI 下载、连接指南和访问密钥管理；CLI 使用专用访问密钥或 Halo 个人令牌访问一个或多个站点。
 
-当前版本为 `0.5.0`，支持 Halo 核心内容管理、插件/主题生命周期与配置、常用插件适配，以及邮件模板查询、编辑、校验和导入导出，兼容 Halo `2.26+`。
+当前版本为 `1.0.0-rc.1`，面向 Halo `2.27+`。支持原生设置、通知渠道、主题和插件配置，以及 Hanlo、独立装备、瞬间、图库、友链、S3 存储策略和邮件模板工作流。
 
 > [!NOTE]
 > 本项目是社区插件，与 Halo 官方发布的 [`@halo-dev/cli`](https://github.com/halo-dev/cli) 相互独立。
@@ -63,6 +63,73 @@ Terminal ── halo-cli ── Bearer hcli_... ──> 密钥状态与操作范
 | Hao 1.7.3 | 依赖体检、7 个页面模板、5 类注解字段及常用插件模型映射 | 已完成 |
 | 搜索和插件 API | Halo 搜索索引、同站 JSON API、multipart 文件上传和敏感响应脱敏 | 已完成 |
 | 邮件模板 | 查询、编辑、导入导出、校验、恢复默认与验证发送 | 已完成 |
+| 系统设置 | 动态发现八个原生分组，字段 Schema、局部修改、合并导入、导出、默认值重置与 dry-run | 已完成 |
+| Hanlo | 从 `theme-hanlo` 实际 Schema 发现完整配置字段，支持嵌套对象和数组 | 已完成 |
+| 内容插件 | `equipment`、`moment`、`photo`、`link` 的资源、分组及相关业务操作 | 已完成 |
+| S3 存储 | 策略发现、创建、配置、更新、删除及通过 Halo 上传附件到对象存储 | 已完成 |
+| 通知与认证 | 通知器字段、SMTP 配置、测试发送、认证提供者启停及参数配置 | 已完成 |
+
+## 1.0 稳定候选工作流
+
+### 原生设置与 Hanlo
+
+```bash
+halo-cli settings list --json
+halo-cli settings schema basic --fields --json
+halo-cli settings get basic --json
+halo-cli settings set basic /title "我的 Halo" --dry-run --json
+halo-cli settings set basic /title "我的 Halo" --json
+halo-cli settings export --output site-settings.json
+halo-cli settings import --file site-settings.json --dry-run --json
+
+halo-cli hanlo doctor --json
+halo-cli hanlo config-fields --json
+halo-cli hanlo config-set /equipment/bigTitle "我的装备" --dry-run --json
+halo-cli hanlo config-export --output hanlo-config.json
+halo-cli hanlo config-import --file hanlo-config.json --dry-run --json
+```
+
+系统分组从 Halo 的 `system` Setting 发现，当前为 `basic`、`post`、`seo`、`user`、`attachment`、`comment`、`routeRules`、`codeInjection`。`settings set` 的 Pointer 相对于所选分组；主题、插件和存储配置的 Pointer 包含分组，例如 `/equipment/bigTitle` 或 `/default/region`。数组可以整体替换或使用数字索引修改。
+
+局部写入先读取现值并保留其他字段；导入默认合并，完整替换需 `--replace --yes`。`--dry-run` 校验并显示脱敏差异，不执行写入。重置需 `--yes`，按 Schema 默认值恢复；无默认值的必填字段保留当前值。服务端并发冲突会明确失败，不自动覆盖。
+
+### 装备、瞬间、图库和友链
+
+```bash
+halo-cli equipment schema --json
+halo-cli equipment groups --json
+halo-cli equipment create --file equipment.json --json
+halo-cli moment create --owner <username> --content "一条瞬间" --visible PRIVATE --json
+halo-cli photo groups --json
+halo-cli photo upload --file image.png --group <photo-group-name> --json
+halo-cli link list --json
+halo-cli link application-list --json
+halo-cli plugin config-fields han-equipment --json
+halo-cli plugin config-fields PluginMoments --json
+halo-cli plugin config-fields PluginPhotos --json
+halo-cli plugin config-fields PluginLinks --json
+```
+
+创建、更新支持完整资源或裸 `spec` JSON 文件。装备使用独立的 `equipment.hanserwei.github.io/v1alpha1`，`attributes` 保留有序数组和重复标签。资源链接选项为 `--resource-url`，避免与连接站点的 `--url` 混淆。图库上传使用插件业务接口提取 EXIF，存储策略由 `PluginPhotos` 的 `/base/policyName` 配置决定；它不支持请求级 `--policy`。删除图库分组默认保留图片，明确设置 `--delete-photos true` 才级联删除。
+
+### S3 策略与对象存储上传
+
+```bash
+halo-cli storage templates --json
+halo-cli storage create s3-main --template s3os --display-name "对象存储" --json
+halo-cli storage config-fields s3-main --json
+halo-cli storage config-import s3-main --file s3-policy.json --dry-run --json
+halo-cli storage config-import s3-main --file s3-policy.json --json
+halo-cli attachment upload --file image.png --policy s3-main --preflight --json
+```
+
+策略文件可使用 `{"default": {...}}` 或裸配置对象，按实际 Schema 填写桶、Endpoint、Region 和凭据。配置输出默认脱敏，未脱敏导出必须指定 `--include-secrets --output`；包含 `[REDACTED]` 的文件不能直接导入。上传只发送 Halo 令牌、策略名称和文件，S3 凭据由 Halo 服务端读取，CLI 不直接调用 S3 SDK。`storage update` 只修改显示名称，不允许重绑模板或 ConfigMap；发现多个策略共享 ConfigMap 时拒绝配置写入。该预检不替代服务端事务和并发控制。
+
+### 通知、认证与权限
+
+`notifier list/config-fields/config/config-set/config-import/config-export` 管理通知渠道。`notifier verify default-email-notifier --file smtp.json --yes` 会向当前用户发送测试邮件；没有 `--yes` 不发送。`auth-provider` 支持查询、启停及参数配置，修改登录方式需 `--yes`。认证提供者参数使用 Halo PAT 与原生 ConfigMap 角色权限，专用 CLI 密钥不开放任意 ConfigMap CRUD。
+
+原生配置需要 `settings:read/write`；主题、插件需要 `themes:read/write`、`plugins:read/write`；内容插件需要 `known-plugin-extensions:read/write`；存储需要 `policies:read/write` 及读取 Schema 的 `settings:read`，上传需要 `attachments:write`。读写 scope 相互独立，并与所属用户的 Halo RBAC 共同生效。普通用户配置存储或通知时，可授予新增的「配置存储策略」「配置通知发送器」角色，以补齐这些原生业务端点的权限。
 
 ## 安装
 

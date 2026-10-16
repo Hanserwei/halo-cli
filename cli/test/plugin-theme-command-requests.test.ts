@@ -52,6 +52,14 @@ const theme = {
   },
 }
 
+const configurationSchema = {
+  apiVersion: 'v1alpha1', kind: 'Setting', metadata: { name: 'example-setting' },
+  spec: { forms: [{ group: 'feature', formSchema: [
+    { $formkit: 'switch', name: 'enabled' },
+    { $formkit: 'text', name: 'mode' },
+  ] }] },
+}
+
 afterEach(() => {
   vi.restoreAllMocks()
   mocks.createHaloClient.mockReset()
@@ -120,13 +128,14 @@ describe('plugin and theme configuration requests', () => {
     connect()
     mocks.get
       .mockResolvedValueOnce({ data: plugin })
+      .mockResolvedValueOnce({ data: configurationSchema })
       .mockResolvedValueOnce({ data: { endpoint: 'https://example.test', apiKey: 'secret' } })
     const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
 
     await main(['node', 'halo-cli', 'plugin', 'config', 'plugin-example', '--json'])
 
     expect(mocks.get).toHaveBeenNthCalledWith(
-      2,
+      3,
       '/apis/api.console.halo.run/v1alpha1/plugins/plugin-example/json-config',
     )
     expect(output).toHaveBeenCalledWith(expect.stringContaining('"apiKey": "[REDACTED]"'))
@@ -137,6 +146,7 @@ describe('plugin and theme configuration requests', () => {
     connect()
     mocks.get
       .mockResolvedValueOnce({ data: plugin })
+      .mockResolvedValueOnce({ data: configurationSchema })
       .mockResolvedValueOnce({ data: { clientSecret: 'secret', endpoint: 'https://example.test' } })
     const directory = await import('node:fs/promises').then(({ mkdtemp }) => mkdtemp('/tmp/halo-cli-plugin-export-'))
     const outputPath = `${directory}/plugin.json`
@@ -198,6 +208,7 @@ describe('plugin and theme configuration requests', () => {
     connect()
     mocks.get
       .mockResolvedValueOnce({ data: theme })
+      .mockResolvedValueOnce({ data: configurationSchema })
       .mockResolvedValueOnce({ data: { siteTitle: 'Halo', clientToken: 'secret' } })
     const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
 
@@ -208,7 +219,7 @@ describe('plugin and theme configuration requests', () => {
       '/apis/theme.halo.run/v1alpha1/themes/theme-example',
     )
     expect(mocks.get).toHaveBeenNthCalledWith(
-      2,
+      3,
       '/apis/api.console.halo.run/v1alpha1/themes/theme-example/json-config',
     )
     expect(output).toHaveBeenCalledWith(expect.stringContaining('"clientToken": "[REDACTED]"'))
@@ -229,6 +240,7 @@ describe('plugin and theme configuration requests', () => {
     connect()
     mocks.get
       .mockResolvedValueOnce({ data: plugin })
+      .mockResolvedValueOnce({ data: configurationSchema })
       .mockResolvedValueOnce({ data: { feature: { enabled: false, mode: 'safe' } } })
     mocks.put.mockResolvedValue({ data: 'Plugin config updated successfully' })
     const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)

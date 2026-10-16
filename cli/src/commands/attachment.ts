@@ -40,10 +40,12 @@ import type {
   Page,
   StoragePolicy,
 } from '../types.js'
+import { getPolicyTemplate, getStoragePolicy, storageRequest } from './storage.js'
 
 interface AttachmentOptions extends ConnectionOptions, OutputOptions {
   accepts?: string
   displayName?: string
+  dryRun?: boolean
   file?: string
   filename?: string
   force?: boolean
@@ -53,6 +55,7 @@ interface AttachmentOptions extends ConnectionOptions, OutputOptions {
   owner?: string
   page?: string
   policy?: string
+  preflight?: boolean
   size?: string
   sort?: string
   tags?: string
@@ -162,6 +165,34 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+export async function preflightAttachmentUpload(http: AxiosInstance, policyName: string, groupName?: string): Promise<void> {
+  const policy = await getStoragePolicy(http, policyName)
+  await getPolicyTemplate(http, required(policy.spec.templateName, '策略的 templateName'))
+  if (groupName) {
+    const group = (await storageRequest(() => http.get<AttachmentGroup>(storagePath('groups', groupName)))).data
+    if (group.metadata.deletionTimestamp) throw new CliError('附件分组正在删除，不能上传。')
+  }
+  // Upload authorization must not require access to S3 credentials or ConfigMaps.
+}
+
+export async function uploadLocalAttachment(
+  http: AxiosInstance,
+  options: { file: string; policyName: string; groupName?: string; preflight?: boolean; dryRun?: boolean },
+): Promise<Attachment | { dryRun: true; file: string; filename: string; size: number; policyName: string; groupName?: string }> {
+  const file = resolve(options.file)
+  const info = await stat(file).catch(() => { throw new CliError('无法读取本地上传文件，请检查路径及权限。') })
+  if (!info.isFile()) throw new CliError('上传路径必须是普通文件。')
+  const policyName = required(options.policyName, '存储策略（--policy）')
+  const groupName = options.groupName?.trim() || undefined
+  if (options.preflight || options.dryRun) await preflightAttachmentUpload(http, policyName, groupName)
+  if (options.dryRun) return { dryRun: true, file, filename: basename(file), size: info.size, policyName, groupName }
+  const form = new FormData()
+  form.append('file', await openAsBlob(file), basename(file))
+  form.append('policyName', policyName)
+  if (groupName) form.append('groupName', groupName)
+  return (await storageRequest(() => http.post<Attachment>(consoleAttachmentPath('upload'), form))).data
+}
+
 function addConnectionOptions(command: ReturnType<CAC['command']>) {
   return command
     .option('--profile <name>', '使用指定连接')
@@ -211,39 +242,46 @@ export function registerAttachmentCommands(cli: CAC): void {
       printAttachment(response.data, options.json)
     })
 
-  addConnectionOptions(cli.command('upload', '上传本地附件'))
+  addConnectionOptions(cli.command('upload', '通过 Halo 上传本地附件，S3 使用策略实例名'))
     .option('--file <path>', '本地文件路径')
-    .option('--policy <name>', '存储策略 metadata.name')
+    .option('--policy <name>', '存储策略 metadata.name；不是模板名或桶名')
     .option('--group <name>', '附件分组 metadata.name')
+    .option('--preflight', '上传前检查策略、模板和分组；不读取凭据')
+    .option('--dry-run', '预检本地文件及策略，不上传')
     .option('--json', '输出 JSON')
     .action(async (options: AttachmentOptions) => {
-      const file = resolve(required(options.file, '本地文件（--file）'))
-      const policy = required(options.policy, '存储策略（--policy）')
-      const group = textValue(options.group, '--group')
-      const form = new FormData()
-      form.append('file', await openAsBlob(file), basename(file))
-      form.append('policyName', policy)
-      if (group?.trim()) form.append('groupName', group.trim())
+      const file = required(textValue(options.file, '--file'), '本地文件（--file）')
+      const policyName = required(textValue(options.policy, '--policy'), '存储策略（--policy）')
+      const groupName = textValue(options.group, '--group')?.trim() || undefined
       const { http } = await createHaloClient(options)
-      const response = await http.post<Attachment>(consoleAttachmentPath('upload'), form)
-      if (options.json) printJson(response.data)
-      else process.stdout.write(`已上传附件 ${response.data.metadata.name}。\n`)
+      const result = await uploadLocalAttachment(http, { file, policyName, groupName, preflight: options.preflight, dryRun: options.dryRun })
+      if (options.json || 'dryRun' in result) printJson(result)
+      else process.stdout.write(`已上传附件 ${result.metadata.name}。\n`)
     })
 
-  addConnectionOptions(cli.command('upload-url <url>', '从 URL 转存附件'))
-    .option('--policy <name>', '存储策略 metadata.name')
+  addConnectionOptions(cli.command('upload-url <url>', '通过 Halo 从 URL 转存附件'))
+    .option('--policy <name>', '存储策略 metadata.name；不是模板名或桶名')
     .option('--group <name>', '附件分组 metadata.name')
     .option('--filename <name>', '保存时使用的文件名')
+    .option('--preflight', '转存前检查策略、模板和分组；不读取凭据')
+    .option('--dry-run', '预检策略并预览请求，不转存')
     .option('--json', '输出 JSON')
     .action(async (url: string, options: AttachmentOptions) => {
-      const { http } = await createHaloClient(options)
-      const group = textValue(options.group, '--group')
-      const response = await http.post<Attachment>(consoleAttachmentPath('-/upload-from-url'), {
-        filename: options.filename?.trim() || undefined,
-        groupName: group?.trim() || undefined,
-        policyName: required(options.policy, '存储策略（--policy）'),
+      let source: URL
+      try { source = new URL(url) } catch { throw new CliError('转存 URL 必须是有效的 HTTP 或 HTTPS 地址。') }
+      if (!['http:', 'https:'].includes(source.protocol) || source.username || source.password) {
+        throw new CliError('转存 URL 必须使用 HTTP 或 HTTPS，且不能包含用户名或密码。')
+      }
+      const body = {
+        filename: textValue(options.filename, '--filename')?.trim() || undefined,
+        groupName: textValue(options.group, '--group')?.trim() || undefined,
+        policyName: required(textValue(options.policy, '--policy'), '存储策略（--policy）'),
         url,
-      })
+      }
+      const { http } = await createHaloClient(options)
+      if (options.preflight || options.dryRun) await preflightAttachmentUpload(http, body.policyName, body.groupName)
+      if (options.dryRun) { printJson({ dryRun: true, ...body }); return }
+      const response = await storageRequest(() => http.post<Attachment>(consoleAttachmentPath('-/upload-from-url'), body))
       if (options.json) printJson(response.data)
       else process.stdout.write(`已转存附件 ${response.data.metadata.name}。\n`)
     })

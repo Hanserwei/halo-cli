@@ -3,6 +3,7 @@ import axios, { type AxiosInstance } from 'axios'
 import { CliError } from './errors.js'
 import type { ConnectionOptions } from './types.js'
 import { resolveProfile } from './config.js'
+import { CLI_VERSION } from './version.js'
 
 export interface HaloConnection {
   http: AxiosInstance
@@ -17,7 +18,7 @@ export async function createHaloClient(options: ConnectionOptions): Promise<Halo
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${profile.token}`,
-      'User-Agent': 'halo-cli/0.5.0',
+      'User-Agent': `halo-cli/${CLI_VERSION}`,
     },
     paramsSerializer: { indexes: null },
     maxRedirects: 0,

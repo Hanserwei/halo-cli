@@ -84,6 +84,37 @@ halo-cli api request GET /apis/api.console.halo.run/v1alpha1/posts
 halo-cli api --help`,
     note: 'API 请求仍受密钥作用域与所属用户权限限制。POST、PUT、PATCH、DELETE 等请求可能写入或删除数据，发送前请确认接口语义。',
   },
+  {
+    id: 'settings-hanlo',
+    title: '站点设置与 Hanlo 配置',
+    description: '从实际 Schema 发现配置字段，使用 dry-run 预览嵌套字段修改。',
+    command: `halo-cli settings list --json
+halo-cli settings schema basic --fields --json
+halo-cli hanlo config-fields --json
+halo-cli hanlo config-set /equipment/bigTitle "我的装备" --dry-run --json`,
+    note: '局部修改保留其他字段，导入默认合并。配置和差异默认脱敏，完整替换与重置需要明确确认。',
+  },
+  {
+    id: 'plugin-content',
+    title: '装备、瞬间、图库与友链',
+    description: '使用独立装备模型和插件业务接口管理内容；插件设置通过 config-fields 发现。',
+    command: `halo-cli equipment schema --json
+halo-cli moment list --json
+halo-cli photo groups --json
+halo-cli link application-list --json
+halo-cli plugin config-fields PluginPhotos --json`,
+    note: '图库上传使用插件配置的存储策略；它的分组与附件分组不同。审核和级联删除需先核对目标。',
+  },
+  {
+    id: 'object-storage',
+    title: 'S3 与对象存储',
+    description: '通过 Halo 存储策略管理对象存储，上传时只指定策略和文件。',
+    command: `halo-cli storage templates --json
+halo-cli storage list --json
+halo-cli storage config-fields <policy-name> --json
+halo-cli attachment upload --file ./image.png --policy <policy-name> --dry-run --json`,
+    note: '凭据由 Halo 服务端读取。首次配置可通过私有 JSON 文件导入，CLI 输出默认脱敏。',
+  },
 ]
 
 const publishCommands = `halo-cli post create --title "示例草稿" --file ./post.md

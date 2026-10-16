@@ -6,20 +6,31 @@ import { registerAttachmentCommands } from './commands/attachment.js'
 import { registerCategoryCommands } from './commands/category.js'
 import { registerCommentCommands } from './commands/comment.js'
 import { registerExtensionCommands } from './commands/extension.js'
+import { registerHanloCommands } from './commands/hanlo.js'
 import { registerHaoCommands } from './commands/hao.js'
 import { registerMailTemplateCommands } from './commands/mail-template.js'
 import { registerMenuCommands } from './commands/menu.js'
+import { registerAuthProviderCommands, registerNotifierCommands } from './commands/native-settings.js'
 import { registerPageCommands } from './commands/page.js'
 import { registerPluginCommands } from './commands/plugin.js'
+import {
+  registerEquipmentCommands,
+  registerMomentCommands,
+  registerPhotoCommands,
+  registerLinkCommands,
+} from './commands/plugin-content.js'
 import { registerPostCommands } from './commands/post.js'
 import { registerSearchCommands } from './commands/search.js'
+import { registerSettingsCommands } from './commands/settings.js'
+import { registerStorageCommands } from './commands/storage.js'
 import { registerTagCommands } from './commands/tag.js'
 import { registerThemeCommands } from './commands/theme.js'
 import { CliError } from './errors.js'
+import { CLI_VERSION } from './version.js'
 
 export function createCli() {
   const cli = cac('halo-cli')
-  cli.version('0.5.0')
+  cli.version(CLI_VERSION)
   cli.help()
   cli.command('auth', '认证和连接配置')
   cli.command('post', '文章管理')
@@ -36,6 +47,15 @@ export function createCli() {
   cli.command('api', '调用当前 Halo 站点的插件 API')
   cli.command('hao', 'Hao 1.7.3 适配检查与元数据目录')
   cli.command('mail-template', '邮件模板查询、编辑、校验和验证发送')
+  cli.command('equipment', '装备管理')
+  cli.command('moment', '瞬间管理')
+  cli.command('photo', '图库管理')
+  cli.command('link', '链接管理')
+  cli.command('settings', '站点设置管理')
+  cli.command('hanlo', 'Hanlo 主题配置管理')
+  cli.command('storage', '存储策略管理')
+  cli.command('notifier', '通知渠道与 SMTP 配置')
+  cli.command('auth-provider', '认证提供者状态与参数配置')
   return cli
 }
 
@@ -46,6 +66,15 @@ type CommandGroup =
   | 'category'
   | 'comment'
   | 'extension'
+  | 'equipment'
+  | 'moment'
+  | 'photo'
+  | 'link'
+  | 'settings'
+  | 'hanlo'
+  | 'storage'
+  | 'notifier'
+  | 'auth-provider'
   | 'hao'
   | 'mail-template'
   | 'menu'
@@ -58,7 +87,7 @@ type CommandGroup =
 
 function createGroupCli(group: CommandGroup): CAC {
   const cli = cac(`halo-cli ${group}`)
-  cli.version('0.5.0')
+  cli.version(CLI_VERSION)
   cli.help()
   if (group === 'api') registerApiCommands(cli)
   if (group === 'auth') registerAuthCommands(cli)
@@ -75,6 +104,15 @@ function createGroupCli(group: CommandGroup): CAC {
   if (group === 'plugin') registerPluginCommands(cli)
   if (group === 'search') registerSearchCommands(cli)
   if (group === 'theme') registerThemeCommands(cli)
+  if (group === 'equipment') registerEquipmentCommands(cli)
+  if (group === 'moment') registerMomentCommands(cli)
+  if (group === 'photo') registerPhotoCommands(cli)
+  if (group === 'link') registerLinkCommands(cli)
+  if (group === 'settings') registerSettingsCommands(cli)
+  if (group === 'hanlo') registerHanloCommands(cli)
+  if (group === 'storage') registerStorageCommands(cli)
+  if (group === 'notifier') registerNotifierCommands(cli)
+  if (group === 'auth-provider') registerAuthProviderCommands(cli)
   return cli
 }
 
@@ -86,6 +124,15 @@ function isCommandGroup(value: string | undefined): value is CommandGroup {
     value === 'category' ||
     value === 'comment' ||
     value === 'extension' ||
+    value === 'equipment' ||
+    value === 'moment' ||
+    value === 'photo' ||
+    value === 'link' ||
+    value === 'settings' ||
+    value === 'hanlo' ||
+    value === 'storage' ||
+    value === 'notifier' ||
+    value === 'auth-provider' ||
     value === 'hao' ||
     value === 'mail-template' ||
     value === 'menu' ||

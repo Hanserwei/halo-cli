@@ -114,7 +114,7 @@ const descriptors: ResourceDescriptor[] = [
   {
     alias: 'equipment-group',
     generateName: 'equipment-group-',
-    group: 'equipment.kunkunyu.com',
+    group: 'equipment.hanserwei.github.io',
     kind: 'EquipmentGroup',
     resource: 'equipmentgroups',
     version: 'v1alpha1',
@@ -122,7 +122,7 @@ const descriptors: ResourceDescriptor[] = [
   {
     alias: 'equipment',
     generateName: 'equipment-',
-    group: 'equipment.kunkunyu.com',
+    group: 'equipment.hanserwei.github.io',
     kind: 'Equipment',
     resource: 'equipments',
     version: 'v1alpha1',

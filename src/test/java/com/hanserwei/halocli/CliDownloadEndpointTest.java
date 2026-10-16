@@ -13,7 +13,7 @@ class CliDownloadEndpointTest {
     void shouldExposeBundledCli() {
         var client = WebTestClient.bindToRouterFunction(endpoint.endpoint())
             .configureClient()
-            .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(1024 * 1024))
+            .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(4 * 1024 * 1024))
             .build();
 
         client.get()

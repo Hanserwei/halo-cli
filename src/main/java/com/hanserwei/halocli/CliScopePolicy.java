@@ -164,14 +164,18 @@ public final class CliScopePolicy {
                 CONSOLE + resource + "/{name}/json-config");
             add(rules, resource + ":write", "PUT",
                 CONSOLE + resource + "/{name}/json-config",
+                CONSOLE + resource + "/{name}/reset-config",
                 CONSOLE + resource + "/{name}/reload");
         }
         add(rules, "plugins:write", "PUT", CONSOLE + "plugins/{name}/plugin-state");
         add(rules, "themes:read", "GET", CONSOLE + "themes/-/activation");
         add(rules, "themes:write", "PUT", CONSOLE + "themes/{name}/activation");
+        add(rules, "themes:write", "PUT", CONSOLE + "themes/{name}/invalidate-cache");
 
-        // Fixed business groups only; no {group}, root listing or credential-bearing settings.
-        for (String group : List.of("basic", "appearance", "menu")) {
+        // Only groups exposed by Halo's system Setting, plus the core menu preference.
+        add(rules, "settings:read", "GET", CORE + "settings/system");
+        for (String group : List.of("basic", "post", "seo", "user", "attachment", "comment",
+            "routeRules", "codeInjection", "menu")) {
             String path = "/apis/console.api.halo.run/v1alpha1/systemconfigs/" + group;
             add(rules, "settings:read", "GET", path);
             add(rules, "settings:write", "PUT", path);
@@ -181,8 +185,8 @@ public final class CliScopePolicy {
             "core.halo.run/v1alpha1/links", "core.halo.run/v1alpha1/linkapplications",
             "moment.halo.run/v1alpha1/moments", "core.halo.run/v1alpha1/photogroups",
             "core.halo.run/v1alpha1/photos", "bangumi.roozen.top/v1alpha1/bangumis",
-            "equipment.kunkunyu.com/v1alpha1/equipmentgroups",
-            "equipment.kunkunyu.com/v1alpha1/equipments")) {
+            "equipment.hanserwei.github.io/v1alpha1/equipmentgroups",
+            "equipment.hanserwei.github.io/v1alpha1/equipments")) {
             String path = "/apis/" + resource;
             add(rules, "known-plugin-extensions:read", "GET", path, path + "/{name}");
             add(rules, "known-plugin-extensions:write", "POST", path);
@@ -190,6 +194,47 @@ public final class CliScopePolicy {
             add(rules, "known-plugin-extensions:write", "PATCH", path + "/{name}");
             add(rules, "known-plugin-extensions:write", "DELETE", path + "/{name}");
         }
+        // Storage values are accessed through the policy API, never arbitrary ConfigMaps.
+        add(rules, "policies:read", "GET", STORAGE + "policies/{name}",
+            STORAGE + "policytemplates", STORAGE + "policytemplates/{name}");
+        add(rules, "settings:read", "GET", CORE + "settings/{name}");
+        add(rules, "policies:write", "POST", STORAGE + "policies");
+        add(rules, "policies:write", "PUT", STORAGE + "policies/{name}");
+        add(rules, "policies:write", "DELETE", STORAGE + "policies/{name}");
+        String policyConfigs = "/apis/console.api.storage.halo.run/v1alpha1/policies/{name}/configs/default";
+        add(rules, "policies:read", "GET", policyConfigs);
+        add(rules, "policies:write", "PUT", policyConfigs);
+        add(rules, "groups:read", "GET", STORAGE + "groups/{name}");
+        String moments = "/apis/console.api.moment.halo.run/v1alpha1/";
+        add(rules, "known-plugin-extensions:read", "GET", moments + "moments",
+            moments + "moments/{name}", moments + "tags");
+        add(rules, "known-plugin-extensions:write", "POST", moments + "moments");
+        String photos = "/apis/console.api.photo.halo.run/v1alpha1/";
+        add(rules, "known-plugin-extensions:read", "GET", photos + "photos", photos + "photos/tags");
+        add(rules, "known-plugin-extensions:write", "POST", photos + "photos/upload");
+        add(rules, "known-plugin-extensions:write", "DELETE", photos + "photos/{name}",
+            photos + "photogroups/{name}");
+        String links = "/apis/console.api.link.halo.run/v1alpha1/";
+        add(rules, "known-plugin-extensions:read", "GET", links + "links", links + "links/-/detail",
+            links + "linkapplications", links + "linkapplications/{name}");
+        add(rules, "known-plugin-extensions:write", "POST", links + "links/-/sort",
+            links + "linkgroups/-/sort", links + "linkapplications/{name}/approve",
+            links + "linkapplications/{name}/reject", links + "linkapplications/{name}/verify");
+        add(rules, "known-plugin-extensions:write", "DELETE", links + "linkgroups/{name}",
+            links + "linkapplications/{name}");
+        String equipment = "/apis/console.api.equipment.hanserwei.github.io/v1alpha1/";
+        add(rules, "known-plugin-extensions:read", "GET", equipment + "equipments");
+        add(rules, "known-plugin-extensions:write", "DELETE", equipment + "equipmentgroups/{name}");
+        add(rules, "notifiers:read", "GET", "/apis/notification.halo.run/v1alpha1/notifierDescriptors",
+            "/apis/notification.halo.run/v1alpha1/notifierDescriptors/{name}",
+            CONSOLE + "notifiers/{name}/sender-config");
+        add(rules, "notifiers:write", "POST", CONSOLE + "notifiers/{name}/sender-config");
+        add(rules, "notifiers:test", "POST",
+            "/apis/console.api.notification.halo.run/v1alpha1/notifiers/default-email-notifier/verify-connection");
+        add(rules, "auth-providers:read", "GET", CONSOLE + "auth-providers",
+            "/apis/auth.halo.run/v1alpha1/authproviders/{name}");
+        add(rules, "auth-providers:write", "PUT", CONSOLE + "auth-providers/{name}/enable",
+            CONSOLE + "auth-providers/{name}/disable");
         add(rules, "search:read", "POST", "/apis/api.halo.run/v1alpha1/indices/-/search");
 
         String mail = "/apis/console.api.mail-template.halo.run/v1alpha1/";

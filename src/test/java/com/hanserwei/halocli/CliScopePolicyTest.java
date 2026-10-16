@@ -50,8 +50,11 @@ class CliScopePolicyTest {
             attachments:read|storage|GET:attachments/example
             attachments:write|storage|PATCH:attachments/example,DELETE:attachments/example
             attachments:write|console|POST:attachments/upload,POST:attachments/-/upload-from-url
-            groups:read|storage|GET:groups
-            policies:read|storage|GET:policies
+            groups:read|storage|GET:groups,GET:groups/example
+            policies:read|storage|GET:policies,GET:policies/example,GET:policytemplates,GET:policytemplates/example
+            policies:write|storage|POST:policies,PUT:policies/example,DELETE:policies/example
+            policies:read|storage-console|GET:policies/example/configs/default
+            policies:write|storage-console|PUT:policies/example/configs/default
             menus:read|core|GET:menus,GET:menus/example
             menus:write|core|POST:menus,PUT:menus/example
             menus:write|console|DELETE:menus/example
@@ -61,12 +64,28 @@ class CliScopePolicyTest {
             menuitems:write|console|PUT:menuitems/example/position
             plugins:read|console|GET:plugins,GET:plugins/example/setting,GET:plugins/example/json-config
             plugins:read|plugin|GET:plugins/example
-            plugins:write|console|PUT:plugins/example/json-config,PUT:plugins/example/plugin-state,PUT:plugins/example/reload
+            plugins:write|console|PUT:plugins/example/json-config,PUT:plugins/example/plugin-state,PUT:plugins/example/reload,PUT:plugins/example/reset-config
             themes:read|console|GET:themes,GET:themes/-/activation,GET:themes/example/setting,GET:themes/example/json-config
             themes:read|theme|GET:themes/example
-            themes:write|console|PUT:themes/example/activation,PUT:themes/example/reload,PUT:themes/example/json-config
-            settings:read|settings|GET:basic,GET:appearance,GET:menu
-            settings:write|settings|PUT:basic,PUT:appearance,PUT:menu
+            themes:write|console|PUT:themes/example/activation,PUT:themes/example/reload,PUT:themes/example/json-config,PUT:themes/example/reset-config,PUT:themes/example/invalidate-cache
+            settings:read|core|GET:settings/system,GET:settings/example
+            settings:read|settings|GET:basic,GET:post,GET:seo,GET:user,GET:attachment,GET:comment,GET:routeRules,GET:codeInjection,GET:menu
+            settings:write|settings|PUT:basic,PUT:post,PUT:seo,PUT:user,PUT:attachment,PUT:comment,PUT:routeRules,PUT:codeInjection,PUT:menu
+            known-plugin-extensions:read|moments-console|GET:moments,GET:moments/example,GET:tags
+            known-plugin-extensions:write|moments-console|POST:moments
+            known-plugin-extensions:read|photos-console|GET:photos,GET:photos/tags
+            known-plugin-extensions:write|photos-console|POST:photos/upload,DELETE:photos/example,DELETE:photos/tags,DELETE:photos/upload,DELETE:photogroups/example
+            known-plugin-extensions:read|links-console|GET:links,GET:links/-/detail,GET:linkapplications,GET:linkapplications/example
+            known-plugin-extensions:write|links-console|POST:links/-/sort,POST:linkgroups/-/sort,POST:linkapplications/example/approve,POST:linkapplications/example/reject,POST:linkapplications/example/verify,DELETE:linkgroups/example,DELETE:linkapplications/example
+            known-plugin-extensions:read|equipment-console|GET:equipments
+            known-plugin-extensions:write|equipment-console|DELETE:equipmentgroups/example
+            notifiers:read|notification|GET:notifierDescriptors,GET:notifierDescriptors/example
+            notifiers:read|console|GET:notifiers/example/sender-config
+            notifiers:write|console|POST:notifiers/example/sender-config
+            notifiers:test|notification-console|POST:notifiers/default-email-notifier/verify-connection
+            auth-providers:read|console|GET:auth-providers
+            auth-providers:read|auth|GET:authproviders/example
+            auth-providers:write|console|PUT:auth-providers/example/enable,PUT:auth-providers/example/disable
             search:read|search|POST:indices/-/search
             mail-templates:read|mail|GET:mailtemplates,GET:mailtemplates/example,GET:system-properties,POST:mailtemplates/example/validate
             mail-templates:write|mail|PUT:mailtemplates/example,DELETE:mailtemplates/example
@@ -83,6 +102,16 @@ class CliScopePolicyTest {
                     case "settings" -> "/apis/console.api.halo.run/v1alpha1/systemconfigs/";
                     case "search" -> "/apis/api.halo.run/v1alpha1/";
                     case "mail" -> "/apis/console.api.mail-template.halo.run/v1alpha1/";
+                    case "storage-console" -> "/apis/console.api.storage.halo.run/v1alpha1/";
+                    case "moments-console" -> "/apis/console.api.moment.halo.run/v1alpha1/";
+                    case "photos-console" -> "/apis/console.api.photo.halo.run/v1alpha1/";
+                    case "links-console" -> "/apis/console.api.link.halo.run/v1alpha1/";
+                    case "equipment-console" ->
+                        "/apis/console.api.equipment.hanserwei.github.io/v1alpha1/";
+                    case "notification" -> "/apis/notification.halo.run/v1alpha1/";
+                    case "notification-console" ->
+                        "/apis/console.api.notification.halo.run/v1alpha1/";
+                    case "auth" -> "/apis/auth.halo.run/v1alpha1/";
                     default -> throw new IllegalArgumentException(columns[1]);
                 };
                 return Arrays.stream(columns[2].split(",")).map(pair -> {
@@ -97,8 +126,8 @@ class CliScopePolicyTest {
             "core.halo.run/v1alpha1/linkapplications", "core.halo.run/v1alpha1/photogroups",
             "core.halo.run/v1alpha1/photos", "moment.halo.run/v1alpha1/moments",
             "bangumi.roozen.top/v1alpha1/bangumis",
-            "equipment.kunkunyu.com/v1alpha1/equipmentgroups",
-            "equipment.kunkunyu.com/v1alpha1/equipments").flatMap(resource -> {
+            "equipment.hanserwei.github.io/v1alpha1/equipmentgroups",
+            "equipment.hanserwei.github.io/v1alpha1/equipments").flatMap(resource -> {
                 String path = "/apis/" + resource;
                 return Stream.of(
                     new Contract("known-plugin-extensions:read", "GET", path),
@@ -175,6 +204,9 @@ class CliScopePolicyTest {
         "/apis/console.api.halo.run/v1alpha1/systemconfigs/notification",
         "/apis/console.api.halo.run/v1alpha1/systemconfigs/security",
         "/apis/console.api.halo.run/v1alpha1/systemconfigs/unknown",
+        "/apis/console.api.halo.run/v1alpha1/systemconfigs/appearance",
+        "/apis/equipment.kunkunyu.com/v1alpha1/equipmentgroups/example",
+        "/apis/equipment.kunkunyu.com/v1alpha1/equipments/example",
         "/api/v1alpha1/rolebindings/example",
         "/apis/halo-cli.halo.run/v1alpha1/cliaccesskeys/example",
         "/apis/core.halo.run/v1alpha1/unknown/example",
@@ -183,9 +215,9 @@ class CliScopePolicyTest {
         "/apis/core.halo.run/v1beta1/links/example",
         "/apis/api.halo.run/v1alpha1/indices/example/search",
         "/apis/api.console.halo.run/v1alpha1/plugins/example/upgrade",
-        "/apis/api.console.halo.run/v1alpha1/plugins/example/reset-config",
-        "/apis/api.console.halo.run/v1alpha1/themes/example/reset-config",
-        "/apis/api.console.halo.run/v1alpha1/themes/example/invalidate-cache",
+        "/apis/api.console.halo.run/v1alpha1/plugins/example/reset-config/unknown",
+        "/apis/api.console.halo.run/v1alpha1/themes/example/reset-config/unknown",
+        "/apis/api.console.halo.run/v1alpha1/themes/example/invalidate-cache/unknown",
         "/apis/api.console.halo.run/v1alpha1/themes/-/install-from-uri",
         "/apis/console.api.mail-template.halo.run/v1alpha1/mailtemplates/example/restore",
         "/apis/console.api.mail-template.halo.run/v1alpha1/mailtemplates/example/verify",
@@ -200,8 +232,11 @@ class CliScopePolicyTest {
         "/apis/unknown.halo.run/v1alpha1/posts/example",
         "/apis/content.halo.run/v1alpha1/unknown/example",
         "/apis/content.halo.run/v1alpha1/posts/example/status",
-        "/apis/storage.halo.run/v1alpha1/groups/example",
-        "/apis/storage.halo.run/v1alpha1/policies/example",
+        "/apis/storage.halo.run/v1alpha1/groups/example/unknown",
+        "/apis/storage.halo.run/v1alpha1/policies/example/unknown",
+        "/apis/console.api.storage.halo.run/v1alpha1/policies/example/configs/unknown",
+        "/apis/console.api.notification.halo.run/v1alpha1/notifiers/example/verify-connection",
+        "/apis/api.console.halo.run/v1alpha1/auth-providers/example/unknown",
         "/apis/api.console.halo.run/v1alpha1/menuitems/example/tree",
         "/apis/api.console.halo.run/v1alpha1/attachments/example/upload-from-url",
         "/apis/api.console.halo.run/v1alpha1/singlepages/example/unpublish",
@@ -225,6 +260,8 @@ class CliScopePolicyTest {
             "categories:read", "categories:write", "tags:read", "tags:write",
             "comments:read", "comments:write", "replies:read", "replies:write",
             "attachments:read", "attachments:write", "groups:read", "policies:read",
+            "policies:write", "notifiers:read", "notifiers:write", "notifiers:test",
+            "auth-providers:read", "auth-providers:write",
             "menus:read", "menus:write", "menuitems:read", "menuitems:write",
             "plugins:read", "plugins:write", "themes:read", "themes:write",
             "settings:read", "settings:write", "known-plugin-extensions:read",

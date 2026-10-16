@@ -65,3 +65,33 @@ rules:
     resources: ["auth"]
     resourceNames: ["me"]
     verbs: ["get"]
+---
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: halo-cli-role-storage-config
+  labels:
+    halo.run/role-template: "true"
+  annotations:
+    rbac.authorization.halo.run/module: "Halo CLI"
+    rbac.authorization.halo.run/display-name: "配置存储策略"
+    rbac.authorization.halo.run/dependencies: '["role-template-manage-attachments"]'
+rules:
+  - apiGroups: ["console.api.storage.halo.run"]
+    resources: ["policies/configs"]
+    verbs: ["get", "update"]
+---
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: halo-cli-role-notifier-config
+  labels:
+    halo.run/role-template: "true"
+  annotations:
+    rbac.authorization.halo.run/module: "Halo CLI"
+    rbac.authorization.halo.run/display-name: "配置通知发送器"
+    rbac.authorization.halo.run/dependencies: '["role-template-notifier-config"]'
+rules:
+  - apiGroups: ["api.console.halo.run"]
+    resources: ["notifiers/sender-config"]
+    verbs: ["get", "create"]
