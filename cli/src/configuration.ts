@@ -25,6 +25,7 @@ export interface ConfigurationField {
   name: string
   label?: string
   type?: string
+  itemType?: string
   required: boolean
   conditional: boolean
   min?: number
@@ -87,21 +88,23 @@ export function configurationFields(schema: Setting): ConfigurationField[] {
     if (!isJsonObject(nodes)) return
     const type = typeof nodes.$formkit === 'string' ? nodes.$formkit : undefined
     const name = typeof nodes.name === 'string' ? nodes.name : undefined
+    const currentElement = !name && nodes.index === '$index' && parent.endsWith('/*')
     const nodeConditional = conditional || nodes.if !== undefined
     let childParent = parent
     let nodeSensitive = sensitive
-    if (name && type) {
-      if (Object.hasOwn(unsafeKeys, name)) throw new CliError('配置 Schema 包含不安全字段。')
-      const pointer = `${parent}/${escapePointer(name)}`
-      nodeSensitive = sensitive || type === 'password' || nodes.secret === true || nodes.sensitive === true || isSensitiveKey(name)
+    if (type && (name || currentElement)) {
+      if (name && Object.hasOwn(unsafeKeys, name)) throw new CliError('配置 Schema 包含不安全字段。')
+      const pointer = name ? `${parent}/${escapePointer(name)}` : parent
+      nodeSensitive = sensitive || type === 'password' || nodes.secret === true || nodes.sensitive === true || isSensitiveKey(name ?? '')
       const field: ConfigurationField = {
-        group, pointer, name, type,
+        group, pointer, name: name ?? '*', type,
         label: typeof nodes.label === 'string' ? nodes.label : undefined,
         required: requiredRule(nodes.validation), conditional: nodeConditional, sensitive: nodeSensitive,
       }
       if (Object.hasOwn(nodes, 'value')) field.default = structuredClone(nodes.value)
       const options = optionValues(nodes.options)
       if (typeof nodes.min === 'number') field.min = nodes.min
+      if (Object.hasOwn(listTypes, type) && typeof nodes.itemType === 'string') field.itemType = nodes.itemType
       if (typeof nodes.max === 'number') field.max = nodes.max
       if (nodes.allowCreate === true) field.allowCreate = true
       if (options?.length) field.options = options
@@ -157,7 +160,16 @@ function valuesAt(value: unknown, parts: string[]): unknown[] {
 function acceptsType(field: ConfigurationField, value: unknown): boolean {
   const type = field.type ?? ''
   if (Object.hasOwn(objectTypes, type)) return isJsonObject(value)
-  if (Object.hasOwn(listTypes, type) || type === 'checkbox' && field.options) return Array.isArray(value)
+  if (Object.hasOwn(listTypes, type)) {
+    if (!Array.isArray(value)) return false
+    if (field.itemType === 'string') return value.every((entry) => typeof entry === 'string')
+    if (field.itemType === 'number') return value.every((entry) => typeof entry === 'number' && Number.isFinite(entry))
+    if (field.itemType === 'boolean') return value.every((entry) => typeof entry === 'boolean')
+    if (field.itemType === 'object') return value.every(isJsonObject)
+    if (field.itemType === 'array') return value.every(Array.isArray)
+    return true
+  }
+  if (type === 'checkbox' && field.options) return Array.isArray(value)
   if (Object.hasOwn(booleanTypes, type)) return typeof value === 'boolean'
   if (type === 'number' || type === 'range') return typeof value === 'number' && Number.isFinite(value)
   if (Object.hasOwn(textTypes, type)) return typeof value === 'string' || typeof value === 'number' && Number.isFinite(value)
@@ -195,7 +207,7 @@ export function assertConfigurationPointer(pointer: string, schema: Setting): vo
   const parts = pointerParts(pointer)
   const found = configurationFields(schema).some((field) => {
     const candidate = pointerParts(field.pointer)
-    return candidate.length === parts.length && candidate.every((part, index) => part === parts[index] || part === '*' && /^(0|[1-9]\d*|-)$/.test(parts[index]!))
+    return candidate.length === parts.length && candidate.every((part, index) => part === '*' ? /^(0|[1-9]\d*|-)$/.test(parts[index]!) : part === parts[index])
   })
   if (!found) throw new CliError(`Schema 中未发现配置字段：${pointer}`)
 }

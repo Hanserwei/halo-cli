@@ -47,7 +47,7 @@ halo-cli theme config-fields theme-hanlo --json
 halo-cli equipment schema --json
 halo-cli equipment groups --json
 halo-cli equipment create --file equipment.json --json
-halo-cli moment create --owner <username> --content "一条瞬间" --visible PRIVATE --json
+halo-cli moment create --content "一条瞬间" --visible PRIVATE --json # 归属当前登录用户
 halo-cli photo upload --file image.png --group <photo-group-name> --json
 halo-cli link list --json
 halo-cli link application-list --json

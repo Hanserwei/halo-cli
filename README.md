@@ -111,7 +111,7 @@ halo-cli hanlo config-import --file hanlo-config.json --dry-run --json
 halo-cli equipment schema --json
 halo-cli equipment groups --json
 halo-cli equipment create --file equipment.json --json
-halo-cli moment create --owner <username> --content "一条瞬间" --visible PRIVATE --json
+halo-cli moment create --content "一条瞬间" --visible PRIVATE --json # owner 由服务端设为当前登录用户
 halo-cli photo groups --json
 halo-cli photo upload --file image.png --group <photo-group-name> --json
 halo-cli link list --json
@@ -123,6 +123,8 @@ halo-cli plugin config-fields PluginLinks --json
 ```
 
 创建、更新支持完整资源或裸 `spec` JSON 文件。装备使用独立的 `equipment.hanserwei.github.io/v1alpha1`，`attributes` 保留有序数组和重复标签。资源链接选项为 `--resource-url`，避免与连接站点的 `--url` 混淆。图库上传使用插件业务接口提取 EXIF，存储策略由 `PluginPhotos` 的 `/base/policyName` 配置决定；它不支持请求级 `--policy`。删除图库分组默认保留图片，明确设置 `--delete-photos true` 才级联删除。
+
+瞬间创建归属当前登录用户，不能通过 `--owner` 或 JSON 中的 `owner` 指定作者；从已有资源复制创建时，请先移除 `spec.owner`。更新时未显式提供 `owner` 会保留原值。装备列表支持 `--keyword`；不支持关键词搜索的分组列表会明确拒绝该选项。
 
 ### S3 策略与对象存储上传
 
@@ -136,6 +138,8 @@ halo-cli attachment upload --file image.png --policy s3-main --preflight --json
 ```
 
 策略文件可使用 `{"default": {...}}` 或裸配置对象，按实际 Schema 填写桶、Endpoint、Region 和凭据。配置输出默认脱敏，未脱敏导出必须指定 `--include-secrets --output`；包含 `[REDACTED]` 的文件不能直接导入。上传只发送 Halo 令牌、策略名称和文件，S3 凭据由 Halo 服务端读取，CLI 不直接调用 S3 SDK。`storage update` 只修改显示名称，不允许重绑模板或 ConfigMap；发现多个策略共享 ConfigMap 时拒绝配置写入。该预检不替代服务端事务和并发控制。
+
+存储配置通过本插件的版本化接口读写，请同步更新插件 JAR 与 CLI。写入会核对读取时的策略版本、ConfigMap 关联和配置版本，并在同一事务内更新；期间若其他操作轮换凭据或改变关联，会返回冲突，需重新读取后再决定是否提交。新接口不可用时会提示升级，不会退回无版本检查的整组覆盖。
 
 ### 通知、认证与权限
 

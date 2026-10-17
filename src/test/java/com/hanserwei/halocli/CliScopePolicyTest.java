@@ -55,6 +55,8 @@ class CliScopePolicyTest {
             policies:write|storage|POST:policies,PUT:policies/example,DELETE:policies/example
             policies:read|storage-console|GET:policies/example/configs/default
             policies:write|storage-console|PUT:policies/example/configs/default
+            policies:read|cli-storage|GET:policies/example/configs/default
+            policies:write|cli-storage|PUT:policies/example/configs/default
             menus:read|core|GET:menus,GET:menus/example
             menus:write|core|POST:menus,PUT:menus/example
             menus:write|console|DELETE:menus/example
@@ -103,6 +105,7 @@ class CliScopePolicyTest {
                     case "search" -> "/apis/api.halo.run/v1alpha1/";
                     case "mail" -> "/apis/console.api.mail-template.halo.run/v1alpha1/";
                     case "storage-console" -> "/apis/console.api.storage.halo.run/v1alpha1/";
+                    case "cli-storage" -> "/apis/console.api.halo-cli.halo.run/v1alpha1/";
                     case "moments-console" -> "/apis/console.api.moment.halo.run/v1alpha1/";
                     case "photos-console" -> "/apis/console.api.photo.halo.run/v1alpha1/";
                     case "links-console" -> "/apis/console.api.link.halo.run/v1alpha1/";

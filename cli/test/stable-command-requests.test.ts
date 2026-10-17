@@ -49,28 +49,39 @@ describe('Halo 2.27 stable commands', () => {
     expect(mocks.put).toHaveBeenCalledWith('/apis/api.console.halo.run/v1alpha1/themes/theme-hanlo/json-config', { equipment: { bigTitle: 'My equipment', smallTitle: 'Keep' }, nav: { enabled: true } })
   })
 
-  it('writes S3 configuration using the policy API and never prints its secret', async () => {
-    const policy = { metadata: { name: 's3-personal', version: 1 }, spec: { templateName: 's3os', displayName: 'S3', configMapName: 's3-config' } }
+  it('writes S3 configuration using the versioned policy API and never prints its secret', async () => {
+    const policy = { metadata: { name: 's3-personal', version: 7 }, spec: { templateName: 's3os', displayName: 'S3', configMapName: 's3-config' } }
     const storageSchema = { ...schema, spec: { forms: [{ group: 'default', formSchema: [{ $formkit: 'text', name: 'bucket', validation: 'required' }, { $formkit: 'password', name: 'accessSecret' }] }] } }
     mocks.get.mockResolvedValueOnce({ data: policy }).mockResolvedValueOnce({ data: { spec: { settingName: 's3os-policy-template-setting' } } })
-      .mockResolvedValueOnce({ data: storageSchema }).mockResolvedValueOnce({ data: { bucket: 'my-bucket', accessSecret: 'very-private-s3-value' } })
-      .mockResolvedValueOnce({ data: { items: [policy], hasNext: false } })
+      .mockResolvedValueOnce({ data: storageSchema }).mockResolvedValueOnce({ data: { policyVersion: 7, configMapName: 's3-config', configMapVersion: 12, config: { bucket: 'my-bucket', accessSecret: 'very-private-s3-value' } } })
     mocks.put.mockResolvedValue({ status: 204 })
     await main(['node', 'halo-cli', 'storage', 'config-set', 's3-personal', '/default/bucket', 'new-bucket', '--json'])
-    expect(mocks.put).toHaveBeenCalledWith('/apis/console.api.storage.halo.run/v1alpha1/policies/s3-personal/configs/default', { bucket: 'new-bucket', accessSecret: 'very-private-s3-value' })
+    expect(mocks.get.mock.calls.map(([path]) => path)).toEqual([
+      '/apis/storage.halo.run/v1alpha1/policies/s3-personal',
+      '/apis/storage.halo.run/v1alpha1/policytemplates/s3os',
+      '/api/v1alpha1/settings/s3os-policy-template-setting',
+      '/apis/console.api.halo-cli.halo.run/v1alpha1/policies/s3-personal/configs/default',
+    ])
+    expect(mocks.put).toHaveBeenCalledExactlyOnceWith('/apis/console.api.halo-cli.halo.run/v1alpha1/policies/s3-personal/configs/default', { policyVersion: 7, configMapName: 's3-config', configMapVersion: 12, config: { bucket: 'new-bucket', accessSecret: 'very-private-s3-value' } })
     expect(process.stdout.write).not.toHaveBeenCalledWith(expect.stringContaining('very-private-s3-value'))
   })
 
-  it('initializes an unbound policy without calling the failing native empty-config GET', async () => {
-    const policy = { metadata: { name: 'new-policy' }, spec: { templateName: 's3os' } }
+  it('initializes an unbound policy after reading the safe API with an explicit null association', async () => {
+    const policy = { metadata: { name: 'new-policy', version: 3 }, spec: { templateName: 's3os' } }
     const storageSchema = { ...schema, spec: { forms: [{ group: 'default', formSchema: [{ $formkit: 'text', name: 'bucket', validation: 'required' }] }] } }
     mocks.get.mockResolvedValueOnce({ data: policy }).mockResolvedValueOnce({ data: { spec: { settingName: 's3os-setting' } } }).mockResolvedValueOnce({ data: storageSchema })
+      .mockResolvedValueOnce({ data: { policyVersion: 3, configMapName: null, configMapVersion: null, config: {} } })
     mocks.put.mockResolvedValue({ status: 204 })
     const file = join(directory, 'new-policy.json')
     await writeFile(file, JSON.stringify({ bucket: 'new-bucket' }))
     await main(['node', 'halo-cli', 'storage', 'config-import', 'new-policy', '--file', file, '--json'])
-    expect(mocks.get).not.toHaveBeenCalledWith('/apis/console.api.storage.halo.run/v1alpha1/policies/new-policy/configs/default')
-    expect(mocks.put).toHaveBeenCalledWith('/apis/console.api.storage.halo.run/v1alpha1/policies/new-policy/configs/default', { bucket: 'new-bucket' })
+    expect(mocks.get.mock.calls.map(([path]) => path)).toEqual([
+      '/apis/storage.halo.run/v1alpha1/policies/new-policy',
+      '/apis/storage.halo.run/v1alpha1/policytemplates/s3os',
+      '/api/v1alpha1/settings/s3os-setting',
+      '/apis/console.api.halo-cli.halo.run/v1alpha1/policies/new-policy/configs/default',
+    ])
+    expect(mocks.put).toHaveBeenCalledExactlyOnceWith('/apis/console.api.halo-cli.halo.run/v1alpha1/policies/new-policy/configs/default', { policyVersion: 3, configMapName: null, configMapVersion: null, config: { bucket: 'new-bucket' } })
   })
 
   it('creates equipment using the independent GVK and preserves repeated ordered attributes', async () => {
@@ -84,8 +95,8 @@ describe('Halo 2.27 stable commands', () => {
 
   it('creates a Moment through the moderation-aware Console endpoint', async () => {
     mocks.post.mockResolvedValue({ data: { spec: { approved: true } } })
-    await main(['node', 'halo-cli', 'moment', 'create', '--owner', 'admin', '--content', '# Hello', '--visible', 'PRIVATE', '--json'])
-    expect(mocks.post).toHaveBeenCalledWith('/apis/console.api.moment.halo.run/v1alpha1/moments', expect.objectContaining({ spec: expect.objectContaining({ owner: 'admin', visible: 'PRIVATE', content: { raw: '# Hello', html: '<h1>Hello</h1>\n' } }) }))
+    await main(['node', 'halo-cli', 'moment', 'create', '--content', '# Hello', '--visible', 'PRIVATE', '--json'])
+    expect(mocks.post).toHaveBeenCalledWith('/apis/console.api.moment.halo.run/v1alpha1/moments', expect.objectContaining({ spec: { visible: 'PRIVATE', content: { raw: '# Hello', html: '<h1>Hello</h1>\n' } } }))
   })
 
   it('uploads a photo through the plugin business API without pretending a per-request S3 policy exists', async () => {

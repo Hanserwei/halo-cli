@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { assertConfiguration, configurationChanges, configurationFields, configurationReset, redactConfiguration, redactConfigurationSchema } from '../src/configuration.js'
+import { assertConfiguration, assertConfigurationPointer, configurationChanges, configurationDefaults, configurationFields, configurationReset, redactConfiguration, redactConfigurationSchema } from '../src/configuration.js'
 import type { Setting } from '../src/types.js'
 
 const schema: Setting = {
@@ -67,4 +67,52 @@ it('supports Halo FormKit array fields without inventing required fields outside
   expect(configurationFields(arraySchema).map((field) => field.pointer)).toContain('/footer/social/*/name')
   expect(() => assertConfiguration({ footer: { social: [] } }, arraySchema)).not.toThrow()
   expect(() => assertConfiguration({ footer: { social: [{ name: 'GitHub' }] } }, arraySchema)).toThrow('/footer/social/*/url')
+})
+
+// Mirrors the anonymous indexed inputs in Hanlo settings.yaml (author_info_left/right_tags).
+const hanloTagSchema: Setting = {
+  apiVersion: 'v1alpha1', kind: 'Setting', metadata: { name: 'theme-hanlo-setting' },
+  spec: { forms: [{ group: 'about', formSchema: [
+    { $formkit: 'list', name: 'author_info_left_tags', label: '头像左侧标签', addLabel: '添加左侧标签', itemType: 'string', children: [
+      { $formkit: 'text', index: '$index', validation: 'required', label: '个人标签', placeholder: '例如：徒步爱好者' },
+    ] },
+    { $formkit: 'list', name: 'author_info_right_tags', label: '头像右侧标签', addLabel: '添加右侧标签', itemType: 'string', children: [
+      { $formkit: 'text', index: '$index', validation: 'required', label: '个人标签', placeholder: '例如：持续学习中' },
+    ] },
+  ] }] },
+}
+
+describe.each(['author_info_left_tags', 'author_info_right_tags'])('Hanlo indexed list %s', (name) => {
+  const pointer = `/about/${name}`
+
+  it('discovers the element at the current wildcard path and matches valid array indices', () => {
+    expect(configurationFields(hanloTagSchema)).toContainEqual(expect.objectContaining({
+      pointer, type: 'list', itemType: 'string', required: false,
+    }))
+    expect(configurationFields(hanloTagSchema)).toContainEqual(expect.objectContaining({
+      pointer: `${pointer}/*`, name: '*', type: 'text', required: true,
+    }))
+    expect(configurationFields(hanloTagSchema).some((field) => field.pointer.includes('/*/*'))).toBe(false)
+    for (const index of ['0', '12', '-']) {
+      expect(() => assertConfigurationPointer(`${pointer}/${index}`, hanloTagSchema)).not.toThrow()
+    }
+    for (const index of ['*', '01', '-1', '1.0', 'label', '0/label']) {
+      expect(() => assertConfigurationPointer(`${pointer}/${index}`, hanloTagSchema)).toThrow('Schema')
+    }
+  })
+
+  it('allows absent or empty lists without inventing a required element or a default', () => {
+    expect(() => assertConfiguration({}, hanloTagSchema)).not.toThrow()
+    expect(() => assertConfiguration({ about: { [name]: [] } }, hanloTagSchema)).not.toThrow()
+    expect(() => assertConfiguration({ about: { [name]: ['徒步爱好者', '持续学习中'] } }, hanloTagSchema)).not.toThrow()
+    expect(configurationDefaults(hanloTagSchema)).toEqual({ about: {} })
+  })
+
+  it.each([123, false, {}, [], null].map((entry) => ({ entry })))('rejects imported non-string elements: $entry', ({ entry }) => {
+    expect(() => assertConfiguration({ about: { [name]: ['有效标签', entry] } }, hanloTagSchema)).toThrow('类型')
+  })
+
+  it('validates required on each imported element', () => {
+    expect(() => assertConfiguration({ about: { [name]: ['有效标签', ''] } }, hanloTagSchema)).toThrow(`必填配置字段缺失：${pointer}/*`)
+  })
 })

@@ -43,7 +43,27 @@ const policyTemplatesPath = (name?: string) =>
   customExtensionPath('storage.halo.run', 'v1alpha1', 'policytemplates', name)
 
 export function policyConfigurationPath(name: string): string {
-  return `/apis/console.api.storage.halo.run/v1alpha1/policies/${encodeURIComponent(name)}/configs/default`
+  return `/apis/console.api.halo-cli.halo.run/v1alpha1/policies/${encodeURIComponent(name)}/configs/default`
+}
+
+interface StorageConfigurationSnapshot {
+  policyVersion: number
+  configMapName: string | null
+  configMapVersion: number | null
+  config: Record<string, unknown>
+}
+
+async function versionedConfigurationRequest<T>(operation: () => Promise<T>): Promise<T> {
+  return storageRequest(async () => {
+    try {
+      return await operation()
+    } catch (error) {
+      if (axios.isAxiosError(error) && [404, 405, 501].includes(error.response?.status ?? 0)) {
+        throw new CliError('安全存储配置接口不可用，请升级并启用支持版本化存储配置 API 的 Halo CLI 插件，同时确认策略存在；已拒绝使用旧版配置写入接口。')
+      }
+      throw error
+    }
+  })
 }
 
 // Configuration responses may contain arbitrary S3 credentials. Never echo a server error body.
@@ -111,45 +131,35 @@ async function policySchema(http: AxiosInstance, policy: StoragePolicy): Promise
   return { ...schema, spec: { ...schema.spec, forms: schema.spec.forms.filter((form) => isJsonObject(form) && form.group === 'default') } }
 }
 
-export async function assertExclusivePolicyConfiguration(http: AxiosInstance, policy: StoragePolicy): Promise<void> {
-  const configMapName = policy.spec.configMapName
-  if (configMapName === undefined || configMapName === null || configMapName === '') return
-  if (typeof configMapName !== 'string' || !configMapName.trim()) throw new CliError('策略的 ConfigMap 关联无效。')
-  // Halo's config endpoint updates the existing reference. Refuse known shared references
-  // rather than changing another policy's credentials. No ConfigMap is rebound or deleted.
-  for (let page = 1; ; page++) {
-    const result = (await storageRequest(() => http.get<Page<StoragePolicy>>(storagePath('policies'), {
-      params: { page, size: 100 },
-    }))).data
-    if (result.items.some((item) => item.metadata.name !== policy.metadata.name && item.spec.configMapName === configMapName)) {
-      throw new CliError('此策略与其他策略共享 ConfigMap，拒绝修改配置；请先在 Halo 中修复关联。')
-    }
-    if (!result.hasNext) break
-    if (result.items.length === 0) throw new CliError('策略列表分页异常，无法确认 ConfigMap 独占关联。')
-  }
-}
-
 export async function loadStorageConfiguration(http: AxiosInstance, name: string): Promise<ConfigurationTarget> {
   const policy = await getStoragePolicy(http, name)
   const schema = await policySchema(http, policy)
-  // Halo 2.27's config GET maps a missing configMapName through a non-null mapper.
-  // An unbound policy is definitively empty; the transactional PUT creates its ConfigMap.
-  const value: unknown = policy.spec.configMapName
-    ? (await storageRequest(() => http.get<unknown>(policyConfigurationPath(name)))).data
-    : null
-  if (value !== null && !isJsonObject(value)) throw new CliError('策略配置不是 JSON 对象，拒绝覆盖。')
+  const snapshot = (await versionedConfigurationRequest(() => http.get<StorageConfigurationSnapshot>(policyConfigurationPath(name)))).data
+  if (!isJsonObject(snapshot) || !Number.isSafeInteger(snapshot.policyVersion)
+    || !(snapshot.configMapName === null || typeof snapshot.configMapName === 'string' && snapshot.configMapName.length > 0)
+    || !(snapshot.configMapVersion === null || Number.isSafeInteger(snapshot.configMapVersion))
+    || (snapshot.configMapName === null) !== (snapshot.configMapVersion === null)
+    || !isJsonObject(snapshot.config)) {
+    throw new CliError('安全存储配置接口未返回有效版本，请升级 Halo CLI 插件；拒绝无版本写入。')
+  }
+  if (snapshot.policyVersion !== policy.metadata.version
+    || snapshot.configMapName !== (policy.spec.configMapName || null)) {
+    throw new CliError('存储策略或配置关联在读取期间已更新，请重新读取后重试。')
+  }
   return {
     label: '存储策略配置',
     schema,
-    current: { default: value ?? {} },
+    current: { default: snapshot.config },
     write: async (updated) => {
-      await assertExclusivePolicyConfiguration(http, policy)
       if (Object.keys(updated).some((key) => key !== 'default') || !isJsonObject(updated.default)) {
         throw new CliError('存储策略配置必须只包含 default 配置组。')
       }
-      // The server creates a ConfigMap and associates it with the Policy in a transaction.
-      // A successful update returns 204; do not depend on a response body or perform a Policy PUT.
-      await storageRequest(() => http.put(policyConfigurationPath(name), updated.default))
+      await versionedConfigurationRequest(() => http.put(policyConfigurationPath(name), {
+        policyVersion: snapshot.policyVersion,
+        configMapName: snapshot.configMapName,
+        configMapVersion: snapshot.configMapVersion,
+        config: updated.default,
+      }))
     },
   }
 }
@@ -264,7 +274,6 @@ export function registerStorageCommands(cli: CAC): void {
       const { http } = await createHaloClient(options)
       const target = await loadStorageConfiguration(http, name)
       assertConfigurationPointer(pointer, target.schema)
-      if (options.dryRun) await assertExclusivePolicyConfiguration(http, await getStoragePolicy(http, name))
       await writeConfiguration(target, setJsonPointer(target.current, pointer, parseJsonValue(value)), options)
     })
 
@@ -279,7 +288,6 @@ export function registerStorageCommands(cli: CAC): void {
       if (options.replace && !options.dryRun) requireConfirmation(options.yes, 'storage config-import --replace')
       const { http } = await createHaloClient(options)
       const target = await loadStorageConfiguration(http, name)
-      if (options.dryRun) await assertExclusivePolicyConfiguration(http, await getStoragePolicy(http, name))
       await writeConfiguration(target, options.replace ? imported : mergeJsonObjects(target.current, imported), options)
     })
 }

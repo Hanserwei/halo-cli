@@ -80,6 +80,9 @@ rules:
   - apiGroups: ["console.api.storage.halo.run"]
     resources: ["policies/configs"]
     verbs: ["get", "update"]
+  - apiGroups: ["console.api.halo-cli.halo.run"]
+    resources: ["policies/configs"]
+    verbs: ["get", "update"]
 ---
 apiVersion: v1alpha1
 kind: Role

@@ -204,6 +204,10 @@ public final class CliScopePolicy {
         String policyConfigs = "/apis/console.api.storage.halo.run/v1alpha1/policies/{name}/configs/default";
         add(rules, "policies:read", "GET", policyConfigs);
         add(rules, "policies:write", "PUT", policyConfigs);
+        String versionedPolicyConfigs =
+            "/apis/console.api.halo-cli.halo.run/v1alpha1/policies/{name}/configs/default";
+        add(rules, "policies:read", "GET", versionedPolicyConfigs);
+        add(rules, "policies:write", "PUT", versionedPolicyConfigs);
         add(rules, "groups:read", "GET", STORAGE + "groups/{name}");
         String moments = "/apis/console.api.moment.halo.run/v1alpha1/";
         add(rules, "known-plugin-extensions:read", "GET", moments + "moments",

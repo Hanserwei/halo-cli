@@ -50,6 +50,7 @@ interface ContentOptions extends ConnectionOptions {
 const equipment: ResourceContract = {
   apiVersion: 'equipment.hanserwei.github.io/v1alpha1', kind: 'Equipment', resource: 'equipments',
   label: '装备', requiredFields: ['displayName', 'groupName'],
+  listPath: '/apis/console.api.equipment.hanserwei.github.io/v1alpha1/equipments',
 }
 const equipmentGroup: ResourceContract = {
   apiVersion: equipment.apiVersion, kind: 'EquipmentGroup', resource: 'equipmentgroups', label: '装备分组', requiredFields: ['displayName'],
@@ -57,7 +58,7 @@ const equipmentGroup: ResourceContract = {
 }
 const momentConsole = '/apis/console.api.moment.halo.run/v1alpha1'
 const moment: ResourceContract = {
-  apiVersion: 'moment.halo.run/v1alpha1', kind: 'Moment', resource: 'moments', label: '瞬间', requiredFields: ['content', 'owner'],
+  apiVersion: 'moment.halo.run/v1alpha1', kind: 'Moment', resource: 'moments', label: '瞬间', requiredFields: ['content'],
   listPath: `${momentConsole}/moments`, createPath: `${momentConsole}/moments`,
 }
 const photoConsole = '/apis/console.api.photo.halo.run/v1alpha1'
@@ -97,7 +98,7 @@ function addContentOptions(command: Command): Command {
     .option('--group <name>', '所属分组的 metadata.name')
     .option('--priority <number>', '排序优先级')
     .option('--content <markdown>', '瞬间 Markdown 正文')
-    .option('--owner <username>', '瞬间所属用户名')
+    .option('--owner <username>', '瞬间所属用户名（仅更新；创建时由服务端设为当前用户）')
     .option('--visible <visibility>', '瞬间可见性，PUBLIC 或 PRIVATE')
     .option('--tags <tags>', '逗号分隔的标签，空字符串清空')
     .option('--dry-run', '预览请求，不修改资源')
@@ -135,8 +136,9 @@ function applyFlags(spec: Record<string, unknown>, options: ContentOptions): Rec
   return result
 }
 
-function validateSpec(contract: ResourceContract, spec: Record<string, unknown>): void {
-  for (const field of contract.requiredFields) {
+function validateSpec(contract: ResourceContract, spec: Record<string, unknown>, operation: 'create' | 'update'): void {
+  const requiredFields = contract.kind === 'Moment' && operation === 'update' ? [...contract.requiredFields, 'owner'] : contract.requiredFields
+  for (const field of requiredFields) {
     const value = spec[field]
     if (value === undefined || value === null || typeof value === 'string' && !value.trim()) {
       throw new CliError(`${contract.label}缺少 spec.${field}。可使用 --file 提供完整 JSON。`)
@@ -156,9 +158,10 @@ function registerResourceCommands(cli: CAC, contract: ResourceContract, prefix =
   addConfigurationConnectionOptions(cli.command(list, `分页查询${contract.label}`))
     .option('--page <number>', '页码', { default: 1 })
     .option('--size <number>', '每页数量', { default: 20 })
-    .option('--keyword <text>', '业务列表关键词筛选')
+    .option('--keyword <text>', '业务列表关键词筛选；分组列表不支持')
     .option('--json', '输出 JSON')
     .action(async (options: ContentOptions) => {
+      if (options.keyword !== undefined && !contract.listPath) throw new CliError(`${contract.label}列表不支持 --keyword。`)
       const { http } = await createHaloClient(options)
       const response = await http.get(contract.listPath ?? resourcePath(contract), {
         params: { page: positiveInteger(options.page, 1), size: positiveInteger(options.size, 20), keyword: options.keyword },
@@ -171,15 +174,18 @@ function registerResourceCommands(cli: CAC, contract: ResourceContract, prefix =
       const { http } = await createHaloClient(options)
       printJson((await http.get(resourcePath(contract, name))).data)
     })
-  addContentOptions(cli.command(commandName('create'), `创建${contract.label}；支持全部 spec 字段`))
+  addContentOptions(cli.command(commandName('create'), `创建${contract.label}；${contract.kind === 'Moment' ? 'owner 由服务端设为当前登录用户' : '支持全部 spec 字段'}`))
     .option('--name <name>', '指定资源名；省略由 Halo 生成')
     .action(async (options: ContentOptions) => {
       const input = await inputSpec(options)
       if (input.apiVersion !== undefined && input.apiVersion !== contract.apiVersion || input.kind !== undefined && input.kind !== contract.kind) {
         throw new CliError('文件的 apiVersion/kind 与目标插件资源不匹配。')
       }
+      if (contract.kind === 'Moment' && (options.owner !== undefined || Object.hasOwn(input.spec, 'owner'))) {
+        throw new CliError('创建瞬间时 owner 由服务端设为当前登录用户；请移除 --owner 或 spec.owner。')
+      }
       const spec = applyFlags(input.spec, options)
-      validateSpec(contract, spec)
+      validateSpec(contract, spec, 'create')
       const name = options.name ?? input.metadata?.name
       if (name !== undefined && typeof name !== 'string') throw new CliError('metadata.name 必须是字符串。')
       if (name !== undefined) resourcePath(contract, name)
@@ -191,7 +197,10 @@ function registerResourceCommands(cli: CAC, contract: ResourceContract, prefix =
           ...(isJsonObject(input.metadata?.annotations) ? { annotations: input.metadata.annotations } : {}),
         }, spec,
       }
-      if (options.dryRun) return printJson({ dryRun: true, resource: payload })
+      if (options.dryRun) return printJson({
+        dryRun: true, resource: payload,
+        ...(contract.kind === 'Moment' ? { note: 'owner 由服务端设为当前登录用户。' } : {}),
+      })
       const { http } = await createHaloClient(options)
       printJson((await http.post(contract.createPath ?? resourcePath(contract), payload)).data)
     })
@@ -206,7 +215,7 @@ function registerResourceCommands(cli: CAC, contract: ResourceContract, prefix =
       const { http } = await createHaloClient(options)
       const current = (await http.get<HaloExtension>(path)).data
       const spec = mergeJsonObjects(current.spec ?? {}, patch)
-      validateSpec(contract, spec)
+      validateSpec(contract, spec, 'update')
       const updated = { ...current, spec }
       if (options.dryRun) return printJson({ dryRun: true, resource: updated })
       printJson((await http.put(path, updated)).data)

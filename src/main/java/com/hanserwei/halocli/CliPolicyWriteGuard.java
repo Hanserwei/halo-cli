@@ -90,7 +90,14 @@ public class CliPolicyWriteGuard implements BeforeSecurityWebFilter {
             final JsonNode body;
             try { body = MAPPER.readTree(bytes); }
             catch (Exception error) { return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST)); }
-            if (body == null || !body.isObject() || !body.path("spec").isObject()) {
+            if (body == null || !body.isObject()
+                || !matchesText(body.path("apiVersion"), "storage.halo.run/v1alpha1")
+                || !matchesText(body.path("kind"), "Policy")
+                || !body.path("spec").isObject()) {
+                return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST));
+            }
+            if (name != null && (!body.path("metadata").isObject()
+                || !matchesText(body.path("metadata").path("name"), name))) {
                 return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST));
             }
             var spec = body.path("spec");
@@ -114,6 +121,10 @@ public class CliPolicyWriteGuard implements BeforeSecurityWebFilter {
                     return Mono.empty();
                 });
         });
+    }
+
+    private static boolean matchesText(JsonNode node, String expected) {
+        return node.isTextual() && !node.textValue().isBlank() && expected.equals(node.textValue());
     }
 
     private static Mono<Void> forbidden() {
