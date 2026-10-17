@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Halo CLI：连接、鉴权与 API",
+    "locale": "zh-CN",
+    "output": "docs/architecture/halo-cli.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/hanserwei/halo-cli.git",
+      "revision": "937d6304f13f5d00db0071e0148492a87153b028"
+    }
+  },
+  "components": [
+    {
+      "id": "console",
+      "type": "frontend",
+      "label": "Halo Console",
+      "sublabel": "工具 / Halo CLI",
+      "pos": [40, 40],
+      "size": [210, 80],
+      "sources": [
+        { "path": "ui/src/index.ts", "line": 5, "end_line": 24 },
+        { "path": "ui/src/views/HomeView.vue", "line": 21, "end_line": 25 }
+      ]
+    },
+    {
+      "id": "management",
+      "type": "backend",
+      "label": "CLI 插件管理 API",
+      "sublabel": "下载 CLI / 密钥 CRUD 与轮换",
+      "tag": "Console 登录身份与角色权限",
+      "pos": [350, 40],
+      "size": [250, 90],
+      "sources": [
+        { "path": "src/main/java/com/hanserwei/halocli/CliKeyEndpoint.java", "line": 42, "end_line": 54 },
+        { "path": "src/main/java/com/hanserwei/halocli/CliKeyEndpoint.java", "line": 103, "end_line": 116 },
+        { "path": "README.md", "line": 146, "end_line": 148 }
+      ]
+    },
+    {
+      "id": "cli",
+      "type": "external",
+      "label": "终端 / 自动化 CLI",
+      "sublabel": "目标站点 URL + Bearer 凭据",
+      "tag": "Profile / 环境变量 / 标准输入",
+      "pos": [40, 300],
+      "size": [210, 100],
+      "sources": [
+        { "path": "cli/src/client.ts", "line": 14, "end_line": 27 },
+        { "path": "cli/src/commands/auth.ts", "line": 55, "end_line": 77 }
+      ]
+    },
+    {
+      "id": "dedicated-key",
+      "type": "security",
+      "label": "专用 key 校验 + scope",
+      "sublabel": "状态 / 有效期 / IP / 操作白名单",
+      "tag": "仅 hcli_…；未登记操作默认拒绝",
+      "pos": [350, 220],
+      "size": [250, 100],
+      "sources": [
+        { "path": "src/main/java/com/hanserwei/halocli/CliKeyAuthenticationFilter.java", "line": 45, "end_line": 74 },
+        { "path": "src/main/java/com/hanserwei/halocli/CliAccessKeyService.java", "line": 102, "end_line": 113 },
+        { "path": "src/main/java/com/hanserwei/halocli/CliScopePolicy.java", "line": 71, "end_line": 74 }
+      ]
+    },
+    {
+      "id": "pat-native",
+      "type": "security",
+      "label": "Halo 原生 PAT 认证",
+      "sublabel": "独立路径，沿用 Halo 安全链",
+      "tag": "不经过专用 key 校验与 scope",
+      "pos": [350, 410],
+      "size": [250, 100],
+      "sources": [
+        { "path": "src/main/java/com/hanserwei/halocli/CliKeyAuthenticationFilter.java", "line": 45, "end_line": 49 },
+        { "path": "cli/src/commands/auth.ts", "line": 59, "end_line": 71 },
+        { "path": "README.md", "line": 47, "end_line": 47 }
+      ]
+    },
+    {
+      "id": "halo-rbac",
+      "type": "security",
+      "label": "Halo RBAC 授权",
+      "sublabel": "专用 key：owner 当前权限",
+      "tag": "PAT：Halo 原生令牌权限",
+      "pos": [730, 320],
+      "size": [250, 100],
+      "sources": [
+        { "path": "src/main/java/com/hanserwei/halocli/CliKeyAuthenticationFilter.java", "line": 78, "end_line": 91 },
+        { "path": "src/main/java/com/hanserwei/halocli/CliKeyAuthenticationToken.java", "line": 7, "end_line": 22 },
+        { "path": "README.md", "line": 47, "end_line": 47 }
+      ]
+    },
+    {
+      "id": "halo-native-api",
+      "type": "backend",
+      "label": "Halo 原生 API",
+      "sublabel": "内容 / 附件 / 设置 / 主题与插件",
+      "tag": "REST 与 Extension 资源 API",
+      "pos": [730, 600],
+      "size": [250, 100],
+      "sources": [
+        { "path": "cli/src/client.ts", "line": 30, "end_line": 72 },
+        { "path": "cli/src/client.ts", "line": 95, "end_line": 129 }
+      ]
+    },
+    {
+      "id": "plugin-api",
+      "type": "backend",
+      "label": "插件 API",
+      "sublabel": "瞬间 / 图库 / 友链 / 装备 / 邮件",
+      "tag": "插件业务端点与扩展资源",
+      "pos": [350, 600],
+      "size": [250, 100],
+      "sources": [
+        { "path": "src/main/java/com/hanserwei/halocli/CliScopePolicy.java", "line": 184, "end_line": 195 },
+        { "path": "src/main/java/com/hanserwei/halocli/CliScopePolicy.java", "line": 208, "end_line": 227 },
+        { "path": "src/main/java/com/hanserwei/halocli/CliScopePolicy.java", "line": 240, "end_line": 243 }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "目标 Halo 站点（插件与原生 API 同站运行）",
+      "wraps": ["management", "dedicated-key", "pat-native", "halo-rbac", "halo-native-api", "plugin-api"],
+      "pad": 24
+    }
+  ],
+  "connections": [
+    { "id": "console-management", "from": "console", "to": "management", "label": "登录会话" },
+    { "id": "console-setup", "from": "console", "to": "cli", "label": "下载 / 配置连接" },
+    { "id": "cli-key", "from": "cli", "to": "dedicated-key", "label": "hcli_…", "variant": "security" },
+    { "id": "cli-pat", "from": "cli", "to": "pat-native", "label": "PAT", "variant": "security" },
+    { "id": "key-owner-rbac", "from": "dedicated-key", "to": "halo-rbac", "label": "scope 通过", "variant": "security" },
+    { "id": "pat-halo-rbac", "from": "pat-native", "to": "halo-rbac", "label": "原生认证通过", "variant": "security" },
+    { "id": "native-api-authorized", "from": "halo-rbac", "to": "halo-native-api", "label": "授权通过", "variant": "emphasis" },
+    { "id": "plugin-api-authorized", "from": "halo-rbac", "to": "plugin-api", "label": "授权通过", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "rose", "title": "专用 key 的权限交集", "items": ["scope 与 owner 当前 RBAC 必须同时允许操作。", "读取与写入 scope 独立；专用 key 不能管理密钥。"] },
+    { "dot": "cyan", "title": "PAT 保留原生路径", "items": ["CLI 直接请求同站 Halo / 插件 API。", "PAT 由 Halo 原生认证和授权，不受专用 key scope 限制。"] }
+  ]
+}

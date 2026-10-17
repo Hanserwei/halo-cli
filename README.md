@@ -34,17 +34,29 @@ Halo CLI 是一个 Halo 插件和配套命令行工具，用于从终端管理 H
 
 ## 工作方式
 
-```text
-Halo Console ── 下载 CLI / 创建专用访问密钥
-                              │
-Terminal ── halo-cli ── Bearer hcli_... ──> 密钥状态与操作范围检查
-                                               │
-                                      owner 当前 Halo RBAC
-                                               │
-                                      Halo / 插件 REST API
+[![Halo CLI 架构：Console 管理、专用 key 与 PAT 独立鉴权、Halo 原生与插件 API](./docs/architecture/halo-cli.svg)](./docs/architecture/halo-cli.svg)
+
+Console 使用当前登录会话下载 CLI、管理自己的专用密钥；CLI 直接连接目标站点的 Halo 原生及插件 API。专用 key 必须同时通过状态、有效期、IP、操作 scope 检查和 owner 当前的 Halo RBAC 授权。PAT 独立走 Halo 原生认证与授权，不经过专用 key 校验或 scope 白名单。
+
+[PNG 预览](./docs/architecture/halo-cli.png) · [可复现图源](./docs/architecture/halo-cli.architecture.json)
+
+<details>
+<summary>重新生成与导出架构图（Archify 3.1.0）</summary>
+
+在仓库根目录，将 `ARCHIFY_BIN` 指向 Archify 3.1.0 的 `bin/archify.mjs`，将 `ARCHIFY_OUTPUT` 指向仓库外的临时输出目录，然后运行：
+
+```bash
+mkdir -p "$ARCHIFY_OUTPUT"
+node "$ARCHIFY_BIN" finalize architecture \
+  docs/architecture/halo-cli.architecture.json \
+  "$ARCHIFY_OUTPUT/halo-cli.html" \
+  --repo-root "$PWD" --quality showcase \
+  --out-dir "$ARCHIFY_OUTPUT/review" --json
 ```
 
-专用密钥仅能访问服务端明确登记且被授权的操作，并继续受所属用户当前的 Halo 权限约束。个人令牌沿用 Halo 原有认证流程。CLI 直接连接目标站点，可以保存多个连接。
+打开生成的 `halo-cli.html`，从「导出图表」选择「SVG · 自动」保存为 `docs/architecture/halo-cli.svg`，再在浅色主题下导出 PNG 保存为 `docs/architecture/halo-cli.png`。SVG 包含独立样式并适配深浅主题；PNG 可用于不支持 SVG 的查看器。HTML 与校验回执保留在临时目录，无需纳入版本控制。图源中的 `meta.repository.revision` 固定了本图引用的代码版本；更新架构事实时应同步核对源码与引用行。
+
+</details>
 
 ## 功能状态
 
@@ -795,8 +807,10 @@ IP 白名单匹配 Halo 收到的底层 TCP 连接地址，不使用 `Forwarded`
 ### 环境要求
 
 - Java 21+
-- Node.js 20.19+ 或 22.12+
+- Node.js 24.15+（推荐），或 22.x 的 22.22.2+
 - pnpm 10+
+
+顶部 Node.js 20.19+ 徽章仅表示已构建 CLI 的运行时要求；本地开发、Console UI 构建和完整验收使用上述开发版本。
 
 启动 Halo 插件开发环境：
 
