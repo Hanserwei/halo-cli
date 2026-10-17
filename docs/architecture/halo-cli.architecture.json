@@ -8,7 +8,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/hanserwei/halo-cli.git",
-      "revision": "937d6304f13f5d00db0071e0148492a87153b028"
+      "revision": "740410dcb00edbea134bd3dd7802bd868c054920"
     }
   },
   "components": [
@@ -35,7 +35,7 @@
       "sources": [
         { "path": "src/main/java/com/hanserwei/halocli/CliKeyEndpoint.java", "line": 42, "end_line": 54 },
         { "path": "src/main/java/com/hanserwei/halocli/CliKeyEndpoint.java", "line": 103, "end_line": 116 },
-        { "path": "README.md", "line": 146, "end_line": 148 }
+        { "path": "src/main/java/com/hanserwei/halocli/CliDownloadEndpoint.java", "line": 18, "end_line": 35 }
       ]
     },
     {
@@ -76,7 +76,7 @@
       "sources": [
         { "path": "src/main/java/com/hanserwei/halocli/CliKeyAuthenticationFilter.java", "line": 45, "end_line": 49 },
         { "path": "cli/src/commands/auth.ts", "line": 59, "end_line": 71 },
-        { "path": "README.md", "line": 47, "end_line": 47 }
+        { "path": "README.md", "line": 39, "end_line": 39 }
       ]
     },
     {
@@ -90,7 +90,7 @@
       "sources": [
         { "path": "src/main/java/com/hanserwei/halocli/CliKeyAuthenticationFilter.java", "line": 78, "end_line": 91 },
         { "path": "src/main/java/com/hanserwei/halocli/CliKeyAuthenticationToken.java", "line": 7, "end_line": 22 },
-        { "path": "README.md", "line": 47, "end_line": 47 }
+        { "path": "README.md", "line": 39, "end_line": 39 }
       ]
     },
     {
@@ -110,14 +110,14 @@
       "id": "plugin-api",
       "type": "backend",
       "label": "插件 API",
-      "sublabel": "瞬间 / 图库 / 友链 / 装备 / 邮件",
+      "sublabel": "瞬间/图库/友链/装备/邮件/存储配置",
       "tag": "插件业务端点与扩展资源",
       "pos": [350, 600],
       "size": [250, 100],
       "sources": [
         { "path": "src/main/java/com/hanserwei/halocli/CliScopePolicy.java", "line": 184, "end_line": 195 },
-        { "path": "src/main/java/com/hanserwei/halocli/CliScopePolicy.java", "line": 208, "end_line": 227 },
-        { "path": "src/main/java/com/hanserwei/halocli/CliScopePolicy.java", "line": 240, "end_line": 243 }
+        { "path": "src/main/java/com/hanserwei/halocli/CliScopePolicy.java", "line": 212, "end_line": 247 },
+        { "path": "src/main/java/com/hanserwei/halocli/CliStorageConfigurationEndpoint.java", "line": 46, "end_line": 56 }
       ]
     }
   ],
